@@ -1,0 +1,62 @@
+# Pipeline configuration.
+
+data:
+  csv_paths:
+    train: "./data/train.csv"
+    test: "./data/test.csv"
+    clients: "./data/clientes.csv"
+    sample_submission: "./data/sample_submission.csv"
+  classification_target: "repeat_purchase_90d"
+  regression_target: "spend_next_90d"
+
+cleaning:
+  clients: # As in, the clients.csv
+  train: # As in, the train.csv
+    date_format: "%Y-%m-%d"
+    rename_columns:
+      "Total a Pagar": "total_amount_payable"
+      "Total Bruto": "gross_total"
+      "Total Liquido": "net_total"
+      "Total Imp_": "total_tax"
+      "Total Portes": "total_shipping"
+      "Total Desc_ Global": "total_global_discount"
+      "Total Desc_ Linha": "total_line_item_discount"
+      "Custo": "cost"
+      "N_ Detalhes": "details_count"
+    column_types:
+      int: ["details_count", "invoice_count_current_purchase", "days_since_previous_purchase", "customer_tenure_days", "prior_purchase_count", "purchase_count_30d", "purchase_count_90d", "purchase_count_180d", "purchase_count_365d", "repeat_purchase_90d", "customer_id", "ID"] # Columns that we want to be integers (e.g., "prior_purchase_count" needs to be an integer because you can't make 0.5 prior purchases
+      date: ["purchase_date"] # Columns that we want to be dates
+    domain_rules:
+      total_amount_payable: {min: 0}
+      gross_total: {min: 0}
+      net_total: {min: 0}
+      total_tax: {min: 0}
+      total_shipping: {min: 0}
+      total_global_discount: {min: 0}
+      total_line_item_discount: {min: 0}
+      cost: {min: 0}
+      details_count: {min: 1}
+      invoice_count_current_purchase: {min: 1}
+      repeat_purchase_90d: {min: 0, max: 1}
+      spend_next_90d: {min: 0}
+      days_since_previous_purchase: {min: 0}
+      customer_tenure_days: {min: 0}
+      prior_purchase_count: {min: 0}
+      prior_total_spend: {min: 0}
+      prior_mean_purchase_value: {min: 0} # There are around 16 entries that have a prior_mean_purchase_value of exactly 1 billion. We need to look into that. For now, I'll just have the min value requirement.
+      prior_std_purchase_value: {min: 0}
+      prior_min_purchase_value: {min: 0}
+      prior_max_purchase_value: {min: 0}
+      prior_mean_gap_days: {min: 0}
+      prior_std_gap_days: {min: 0}
+      purchase_count_30d: {min: 0}
+      spend_30d: {min: 0}
+      purchase_count_90d: {min: 0}
+      spend_90d: {min: 0}
+      purchase_count_180d: {min: 0}
+      spend_180d: {min: 0}
+      purchase_count_365d: {min: 0}
+      spend_365d: {min: 0} # This also has a few entries of 1 billion spend
+      customer_id: {min: 0}
+      ID: {min: 0}
+      
