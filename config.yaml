@@ -10,7 +10,6 @@ data:
   regression_target: "spend_next_90d"
 
 cleaning:
-  clients: # As in, the clients.csv
   train: # As in, the train.csv
     date_format: "%Y-%m-%d"
     rename_columns:
@@ -59,4 +58,11 @@ cleaning:
       spend_365d: {min: 0} # This also has a few entries of 1 billion spend
       customer_id: {min: 0}
       ID: {min: 0}
+  clients: # As in, the clients.csv
+    date_format: "%Y"
+    column_types:
+      int: ["customer_id"]
+      date: ["customer_since_year"]
+    domain_rules:
+      customer_id: {min: 0}
       
