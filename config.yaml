@@ -8,6 +8,7 @@ data:
     sample_submission: "./data/sample_submission.csv"
   classification_target: "repeat_purchase_90d"
   regression_target: "spend_next_90d"
+  drop_columns: ["gross_total", "net_total", "total_tax", "cost", "ID", "customer_id", "random_noise"]
 
 cleaning:
   train: # As in, the train.csv
@@ -65,4 +66,8 @@ cleaning:
       date: ["customer_since_year"]
     domain_rules:
       customer_id: {min: 0}
-      
+
+split:
+  validation_start: "2024-01-01"
+  validation_end: "2024-10-31"
+  horizon_days: 90

@@ -1,54 +1,55 @@
-import numpy as np
 import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, RobustScaler, StandardScaler
 
-def clean_dataset(df: pd.DataFrame, cleaning_config: dict) -> pd.DataFrame:
-    """Applies the cleaning rules in `cleaning_config`"""
-    out = df.copy()
 
-    # Rename columns using the configured mappings
-    out = out.rename(columns=cleaning_config.get("rename_columns", {}))
-
-    # Apply the {column: {"min": ..., "max": ...}} domain rules
-    apply_domain_rules(out, cleaning_config.get("domain_rules", {}))
-
-    # Converts columns to their correct types
-    apply_correct_types(out, cleaning_config.get("column_types", {}), cleaning_config["date_format"])
-
-    return out
-
-def apply_domain_rules(df: pd.DataFrame, rules: dict) -> pd.DataFrame:
+def split_features_target(df: pd.DataFrame, data_config: dict) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     """
-    Applies {column: {"min": ..., "max": ...}} domain rules (either bound optional) and sets
-    violations to NaN, in place. Returns the number of violations per column.
+    Returns (X, y_classification, y_regression)
     """
-    report_rows = []
-    for col, bounds in rules.items():
-        if col not in df.columns:
-            continue
-            
-        numeric = pd.to_numeric(df[col], errors="coerce")
-        lower_ok = numeric >= bounds["min"] if "min" in bounds else pd.Series(True, index=numeric.index)
-        upper_ok = numeric <= bounds["max"] if "max" in bounds else pd.Series(True, index=numeric.index)
-        violations = numeric.notna() & ~(lower_ok & upper_ok)
-        
-        report_rows.append({"column": col, "rule": bounds, "violations": int(violations.sum())})
-        df.loc[violations, col] = np.nan
-        
-    return pd.DataFrame(report_rows)
-
-def apply_correct_types(df: pd.DataFrame, column_types: dict, date_format: str):
-    """
-    Converts all observations in a column to a specified type:
+    classification_target = data_config["classification_target"]
+    regression_target = data_config["regression_target"]
     
-        - Columns in `int_columns` get converted to the pandas Int64 type.
-        - Columns in `date_columns` get converted to the date type using the specified date format.
-    """
-    for col in column_types.get("int", []):
-        if col in df.columns:
-            df[col] = (pd.to_numeric(df[col], errors="coerce")).astype("Int64")
+    drop_columns = set(data_config.get("drop_columns", []))
+    drop_columns.update([classification_target, regression_target])
 
-    for col in column_types.get("date", []):
-        if col in df.columns:
-            stripped_values = df[col].astype("string").str.strip()
-            df[col] = pd.to_datetime(stripped_values, format=date_format, errors="coerce")
-        
+    X = df.drop(columns=list(drop_columns), errors="ignore").copy()
+    y_classification = df[classification_target].copy()
+    y_regression = df[regression_target].copy()
+
+    return X, y_classification, y_regression
+
+
+def train_validation_split(
+    X: pd.DataFrame, 
+    y_classification: pd.Series, 
+    y_regression: pd.Series,
+    split_config: dict
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series]:
+    """
+    Returns (X_train, X_validation, y_classification_train, y_classification_validation, y_regression_train, y_regression_validation)
+    """
+    dates = df["purchase_date"]
+    start = pd.Timestamp(split_config["validation_start"])
+    end = pd.Timestamp(split_config["validation_end"])
+    horizon = pd.Timedelta(days=split_config["horizon_days"])
+    observation_end = pd.Timestamp(dates.max())
+
+    # Keep observations with valid classification labels and complete 90-day observation windows
+    eligible = y_classification.isin([0, 1])
+    eligible &= dates.notna() & (dates + horizon <= observation_end)
+
+    # Chronological split with a 90-day gap
+    train_mask = eligible & (dates + horizon < start)
+    validation_mask = eligible & dates.between(start, end)
+
+    return (
+        X.loc[train_mask].copy(),
+        X.loc[validation_mask].copy(),
+        y_classification.loc[train_mask].copy(),
+        y_classification.loc[validation_mask].copy(),
+        y_regression.loc[train_mask].copy(),
+        y_regression.loc[validation_mask].copy(),
+    )
