@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 def clean_dataset(df: pd.DataFrame, cleaning_config: dict) -> pd.DataFrame:
     """Applies the cleaning rules in `cleaning_config`"""
     out = df.copy()
@@ -15,6 +16,7 @@ def clean_dataset(df: pd.DataFrame, cleaning_config: dict) -> pd.DataFrame:
     apply_correct_types(out, cleaning_config.get("column_types", {}), cleaning_config["date_format"])
 
     return out
+
 
 def apply_domain_rules(df: pd.DataFrame, rules: dict) -> pd.DataFrame:
     """
@@ -36,7 +38,8 @@ def apply_domain_rules(df: pd.DataFrame, rules: dict) -> pd.DataFrame:
         
     return pd.DataFrame(report_rows)
 
-def apply_correct_types(df: pd.DataFrame, column_types: dict, date_format: str):
+
+def apply_correct_types(df: pd.DataFrame, column_types: dict, date_format: str) -> None:
     """
     Converts all observations in a column to a specified type:
     
