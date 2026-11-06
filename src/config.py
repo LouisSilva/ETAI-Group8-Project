@@ -7,3 +7,14 @@ def load_yaml_config(path: str | Path = "config.yaml") -> dict:
     """Load the YAML config from a .yaml file."""
     with open(path, "r") as f:
         return yaml.safe_load(f)
+
+
+def find_project_root() -> Path:
+    """Finds and returns the project root directory, which is assumed to be the directory containing the .gitignore"""
+    current = Path(Path.cwd()).resolve()
+
+    for directory in [current, *current.parents]:
+        if (directory / ".gitignore").exists():
+            return directory
+
+    raise FileNotFoundError("Couldn't find project root")

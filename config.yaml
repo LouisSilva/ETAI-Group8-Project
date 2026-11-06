@@ -7,10 +7,11 @@ data:
     clients: "./data/clientes.csv"
     sample_submission: "./data/sample_submission.csv"
 
+
 cleaning:
   train: # As in, the train.csv
     date_format: "%Y-%m-%d"
-    rename_columns:
+    rename_columns: # Renames columns via the rule: "old column name": "new column name"
       "Total a Pagar": "total_amount_payable"
       "Total Bruto": "gross_total"
       "Total Liquido": "net_total"
@@ -20,9 +21,11 @@ cleaning:
       "Total Desc_ Linha": "total_line_item_discount"
       "Custo": "cost"
       "N_ Detalhes": "details_count"
+      
     column_types:
-      int: ["details_count", "invoice_count_current_purchase", "days_since_previous_purchase", "customer_tenure_days", "prior_purchase_count", "purchase_count_30d", "purchase_count_90d", "purchase_count_180d", "purchase_count_365d", "repeat_purchase_90d", "customer_id", "ID"] # Columns that we want to be integers (e.g., "prior_purchase_count" needs to be an integer because you can't make 0.5 prior purchases)
+      int: ["details_count", "invoice_count_current_purchase", "days_since_previous_purchase", "customer_tenure_days", "prior_purchase_count", "purchase_count_30d", "purchase_count_90d", "purchase_count_180d", "purchase_count_365d", "repeat_purchase_90d", "customer_id", "ID"] # Columns that we force to be integers (e.g., "prior_purchase_count" needs to be an integer because you can't make 0.5 prior purchases)
       date: ["purchase_date"] # Columns that we want to be dates
+      
     domain_rules:
       total_amount_payable: {min: 0}
       gross_total: {min: 0}
@@ -65,14 +68,74 @@ cleaning:
     domain_rules:
       customer_id: {min: 0}
 
+
 # Preprocessing is the stuff we do to the dataset for the models, but not for EDA
 preprocessing:
   classification_target: "repeat_purchase_90d"
   regression_target: "spend_next_90d"
-  # drop_columns: ["gross_total", "net_total", "total_tax", "cost", "ID", "customer_id", "random_noise"]
   drop_columns: ["ID", "customer_id", "random_noise"]
+  encoder: "onehot"
+  scaler: "robust"
+  mnar_indicator_sources: []
+  imputation:
+    numeric_strategy: "median"
+    categorical_strategy: "most_frequent"
+
 
 split:
   validation_start: "2024-01-01"
   validation_end: "2024-10-31"
   horizon_days: 90
+
+
+models:
+  selected_model: "gradient_boosting"
+
+  logistic_regression:
+    max_iter: 2000
+
+  decision_tree:
+    max_depth: 15
+    random_state: 42
+
+  random_forest:
+    n_estimators: 300
+    random_state: 42
+    n_jobs: -1
+  
+  oblique_random_forest:
+    n_estimators: 200
+    n_components: 10
+    random_state: 42
+    n_jobs: -1
+  
+  adaboost:
+    max_depth: 1
+    n_estimators: 200
+    learning_rate: 1.0
+    random_state: 42
+
+  gradient_boosting:
+    random_state: 42
+
+  hist_gradient_boosting:
+    random_state: 42
+    class_weight: "balanced"
+
+
+cv:
+  outer_splits: 3
+  inner_splits: 3
+  validation_days: 180
+  # Reported for every run. fbeta_<beta> weights recall beta times as much as precision.
+  metrics: ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "fbeta_2", "roc_auc", "average_precision"]
+  selection_metric: "f1" # "roc_auc"
+  n_jobs: -1
+
+
+feature_selection:
+  enabled: true
+  min_votes: 2
+  random_state: 42
+  search_spaces:
+    select__min_votes: {type: int, low: 1, high: 3}
