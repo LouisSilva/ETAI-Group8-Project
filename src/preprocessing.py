@@ -1,4 +1,6 @@
+import math
 import pandas as pd
+
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -24,34 +26,45 @@ def split_features_target(df: pd.DataFrame, preprocessing_config: dict) -> tuple
     return X, y_classification, y_regression
 
 
-def train_validation_split(
+def development_test_split(
     X: pd.DataFrame, 
     y_classification: pd.Series, 
     y_regression: pd.Series,
     split_config: dict
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series]:
     """
-    Returns (X_train, X_validation, y_classification_train, y_classification_validation, y_regression_train, y_regression_validation)
+    Returns (X_dev, X_test, y_clf_dev, y_clf_test, y_reg_dev, y_reg_test), where clf = classification, and reg = regression.
     """
     dates = X["purchase_date"]
-    validation_start = pd.Timestamp(split_config["validation_start"])
-    validation_end = pd.Timestamp(split_config["validation_end"])
-    horizon = pd.Timedelta(days=split_config["horizon_days"])
+    horizon_length = pd.Timedelta(days=split_config["horizon_length_days"])
+    test_size = split_config["test_size"]
 
-    # Keep observations with valid classification labels and complete 90-day observation windows
+    if not 0 < test_size < 1:
+        raise ValueError(f"test_size must be between 0 and 1. Currently, it is set to {test_size}.")
+
+    # Keep observations with valid classification labels and dates
     eligible = y_classification.isin([0, 1]) & dates.notna()
+    eligible_dates = dates.loc[eligible].sort_values(ascending=True)
 
-    # Chronological split with a 90-day gap
-    train_mask = eligible & (dates + horizon < validation_start)
-    validation_mask = eligible & dates.between(validation_start, validation_end)
+    if len(eligible_dates) < 2:
+        raise ValueError("Not enough eligible observations to split")
+
+    # Number of observations to use for the test set
+    n_test = math.ceil(len(eligible_dates) * test_size)
+
+    # First date of the test period
+    test_start_date = eligible_dates.iloc[-n_test].normalize()
+
+    dev_mask = eligible & (dates + horizon_length < test_start_date)
+    test_mask = eligible & (dates >= test_start_date)
 
     return (
-        X.loc[train_mask].copy(),
-        X.loc[validation_mask].copy(),
-        y_classification.loc[train_mask].copy(),
-        y_classification.loc[validation_mask].copy(),
-        y_regression.loc[train_mask].copy(),
-        y_regression.loc[validation_mask].copy(),
+        X.loc[dev_mask].copy(),
+        X.loc[test_mask].copy(),
+        y_classification.loc[dev_mask].copy(),
+        y_classification.loc[test_mask].copy(),
+        y_regression.loc[dev_mask].copy(),
+        y_regression.loc[test_mask].copy(),
     )
 
 

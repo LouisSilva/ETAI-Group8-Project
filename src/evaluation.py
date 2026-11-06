@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+
 from sklearn.metrics import classification_report, confusion_matrix, fbeta_score, get_scorer, make_scorer
 from sklearn.model_selection import cross_validate
 
@@ -49,7 +50,7 @@ def cross_validate_pipeline(pipeline, X, y, cv, scorers: dict, selection_metric:
     for name in scorers:
         fold_scores[name] = scores[f"test_{name}"]
 
-    oof_proba = np.empty(len(X))
+    oof_proba = np.full(len(X), np.nan)
     for model, val_idx in zip(scores["estimator"], scores["indices"]["test"]):
         oof_proba[val_idx] = model.predict_proba(X.iloc[val_idx])[:, 1]
         

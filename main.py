@@ -1,10 +1,16 @@
+import shutil
+import tempfile
+
+import pandas as pd
+
 from src.config import load_yaml_config
 from src.data import load_data
 from src.cleaning import clean_dataset
-from src.preprocessing import split_features_target, train_validation_split
+from src.preprocessing import split_features_target, development_test_split
 from src.sklearn_extensions import CalendarHorizonSplit
 from src.model import build_pipeline
 from src.evaluation import build_scorers, cross_validate_pipeline, cv_report
+from src.tuning import tune_pipeline, nested_cross_validate, tuning_report
 
 def main():
     config = load_yaml_config()
@@ -17,68 +23,113 @@ def main():
     preprocessing_config = config["preprocessing"]
     X, y_clf, y_reg = split_features_target(df_cleaned, preprocessing_config)
 
-    # TODO: rename "validation" in this part to dev, or just something else. Validation is the thing inside the cv folds, this bit is a locked test set.
-    X_train, X_validation, y_clf_train, y_clf_validation, y_reg_train, y_reg_validation = train_validation_split(X, y_clf, y_reg, config["split"])
+    # Every decision uses the development set only; the test set stays locked
+    X_dev, X_test, y_clf_dev, y_clf_test, y_reg_dev, y_reg_test = development_test_split(X, y_clf, y_reg, config["split"])
 
-    preprocessing_config["numeric_features"] = X_train.select_dtypes(include="number").columns.tolist()
-    preprocessing_config["categorical_features"] = X_train.select_dtypes(include=["object", "category", "string"]).columns.tolist()
-    pipeline = build_pipeline(preprocessing_config, config["models"], config["feature_selection"])
+    preprocessing_config["numeric_features"] = X_dev.select_dtypes(include="number").columns.tolist()
+    preprocessing_config["categorical_features"] = X_dev.select_dtypes(include=["object", "category", "string"]).columns.tolist()
 
-    cv_config = config["cv"]
+    with tempfile.TemporaryDirectory(prefix="pipeline_cache_") as cache_dir:
     
-    outer_cv = CalendarHorizonSplit(
-        date_column="purchase_date",
-        horizon_length_days=config["split"]["horizon_days"],
-        validation_length_days=cv_config["validation_days"],
-        n_splits=cv_config["outer_splits"]
-    )
-
-    # Sanity check that the CalendarHorizonSplit actually works properly
-    for fold, (train_idx, val_idx) in enumerate(outer_cv.split(X_train, y_clf_train), start=1):
-        train_dates = X_train.iloc[train_idx]["purchase_date"]
-        val_dates = X_train.iloc[val_idx]["purchase_date"]
+        pipeline = build_pipeline(preprocessing_config, config["models"], config["feature_selection"], memory=cache_dir)
+        pipeline.verbose = config.get("pipeline_verbose_enabled", False)
     
-        print(f"\nFold {fold}")
-        print(f"Training rows:   {len(train_idx)}")
-        print(f"Validation rows: {len(val_idx)}")
-        print(f"Latest training date: {train_dates.max()}")
-        print(f"First validation date: {val_dates.min()}")
-        print(f"Last validation date:  {val_dates.max()}")
+        # ----- Cross-Validate Selected Model -----
     
-        print(
-            "Validation positive rate:",
-            y_clf_train.iloc[val_idx].mean()
+        cv_config = config["cv"]
+        selection_metric = cv_config["selection_metric"]
+        metrics = cv_config["metrics"]
+        
+        outer_cv = CalendarHorizonSplit(
+            date_column="purchase_date",
+            horizon_length_days=cv_config["horizon_length_days"],
+            validation_length_days=cv_config["validation_length_days"],
+            n_splits=cv_config["outer_splits"]
         )
     
-        assert (
-            train_dates.max() + pd.Timedelta(days=90)
-            < val_dates.min()
+        # Not used yet
+        inner_cv = CalendarHorizonSplit(
+            date_column="purchase_date",
+            horizon_length_days=cv_config["horizon_length_days"],
+            validation_length_days=cv_config["validation_length_days"],
+            n_splits=cv_config["inner_splits"]
         )
+    
+        scorers = build_scorers(metrics)
+        fold_scores, _ = cross_validate_pipeline(
+            pipeline,
+            X_dev,
+            y_clf_dev,
+            outer_cv,
+            scorers,
+            selection_metric,
+            cv_config.get("n_jobs", 1),
+        )
+    
+        report = cv_report(
+            fold_scores,
+            metrics,
+            selection_metric,
+            "Default model: chronological CV"
+        )
+    
+        # ----- Hyperparameter Tuning -----
+    
+        tuning_config = config["tuning"]
+        if tuning_config["enabled"]:
+            selected_model = config["models"]["selected_model"]
+            search_space = dict(tuning_config["search_spaces"][selected_model])
+    
+            if config["feature_selection"]["enabled"]:
+                search_space.update(config["feature_selection"].get("search_space", {}))
+    
+            fold_scores, _ = nested_cross_validate(
+                pipeline,
+                X_dev,
+                y_clf_dev,
+                outer_cv,
+                inner_cv,
+                scorers,
+                selection_metric,
+                search_space,
+                tuning_config["n_trials"],
+                tuning_config["random_state"],
+                n_jobs=cv_config.get("n_jobs", 1)
+            )
+    
+            report += "\n\n" + cv_report(
+                fold_scores,
+                metrics,
+                selection_metric,
+                "Nested chronological CV"
+            )
+    
+            # Returns a pipeline with selected parameters.
+            pipeline, study = tune_pipeline(
+                pipeline,
+                X_dev,
+                y_clf_dev,
+                inner_cv,
+                scorers[selection_metric],
+                search_space,
+                tuning_config["n_trials"],
+                tuning_config["random_state"],
+                n_jobs=cv_config.get("n_jobs", 1)
+            )
+    
+            report += "\n\n" + tuning_report(
+                study,
+                fold_scores,
+                selection_metric
+            )
+        
+        print(report)
 
-    # Not used yet
-    inner_cv = CalendarHorizonSplit(
-        date_column="purchase_date",
-        horizon_length_days=config["split"]["horizon_days"],
-        validation_length_days=cv_config["validation_days"],
-        n_splits=cv_config["inner_splits"]
-    )
+        # pipeline.fit
 
-    scorers = build_scorers(cv_config["metrics"])
-    fold_scores, _ = cross_validate_pipeline(
-        pipeline,
-        X_train,
-        y_clf_train,
-        outer_cv,
-        scorers,
-        cv_config["selection_metric"],
-        cv_config.get("n_jobs", 1),
-    )
+        pipeline.memory = None
+        shutil.rmtree(cache_dir, ignore_errors=True)
 
-    report = cv_report(
-        fold_scores,
-        cv_config["metrics"],
-        cv_config["selection_metric"],
-        "Default model: chronological CV"
-    )
 
-    print(report)
+if __name__ == "__main__":
+    main()

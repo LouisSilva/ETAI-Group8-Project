@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.random_projection import SparseRandomProjection
+from xgboost import XGBClassifier
 
 from src.preprocessing import build_preprocessor
 
@@ -54,7 +55,7 @@ _MODELS = {
     "gradient_boosting": GradientBoostingClassifier,
     "hist_gradient_boosting": HistGradientBoostingClassifier,
     "naive_bayes": GaussianNB,
-   # "xgboost": XGBClassifier,
+    "xgboost": XGBClassifier,
 }
 
 
@@ -98,7 +99,7 @@ class VoteSelector(SelectorMixin, BaseEstimator):
         self.random_state = random_state
 
     def fit(self, X, y):
-        forest = RandomForestClassifier(n_estimators=200, min_samples_leaf=20, random_state=self.random_state, n_jobs=-1).fit(X, y)
+        forest = RandomForestClassifier(n_estimators=200, min_samples_leaf=20, random_state=self.random_state, n_jobs=1).fit(X, y)
         booster = GradientBoostingClassifier(random_state=self.random_state).fit(X, y)
         lasso = LogisticRegression(l1_ratio=1.0, C=0.01, solver="liblinear").fit(X, y)
         self.votes_ = ((forest.feature_importances_ > forest.feature_importances_.mean()).astype(int)

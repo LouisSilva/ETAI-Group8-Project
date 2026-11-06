@@ -9,6 +9,7 @@ from sklearn.model_selection import BaseCrossValidator
 
 
 class CalendarHorizonSplit(BaseCrossValidator):
+    """An equivlent to sklearn.model_selection.TimeSeriesSplit, but uses calendar days instead of observation indicies."""
     def __init__(
         self,
         date_column: str,
