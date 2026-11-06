@@ -68,3 +68,16 @@ def cv_report(fold_scores: pd.DataFrame, metrics: list, selection_metric: str, t
         f"\n{selection_metric}: train-validation gap mean = {fold_scores['gap'].mean():+.3f}",
     ]
     return "\n".join(lines)
+
+
+def oof_classification_report(y_true, oof_proba, threshold: float = 0.5) -> str:
+    """Confusion matrix and classification report of the out-of-fold predictions, as text."""
+    y_pred = (oof_proba >= threshold).astype(int)
+    cm = pd.DataFrame(
+        confusion_matrix(y_true, y_pred), 
+        index=["true 0", "true 1"],
+        columns=["predicted 0", "predicted 1"]
+    )
+    
+    return (f"Out-of-fold predictions, development set (threshold {threshold}):\n\n"
+            f"{cm.to_string()}\n\n{classification_report(y_true, y_pred, zero_division=0)}")

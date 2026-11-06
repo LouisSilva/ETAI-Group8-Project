@@ -66,8 +66,12 @@ def build_model(model_config: dict):
     return _MODELS[selected_model](**params)
 
 
-def build_pipeline(preprocessing_config: dict, model_config: dict, selection_config: dict = None,
-                   memory=None) -> Pipeline:
+def build_pipeline(
+    preprocessing_config: dict, 
+    model_config: dict, 
+    selection_config: dict = None,
+    memory=None
+) -> Pipeline:
     """
     The estimator that is cross-validated, tuned and refit: preprocessing, feature selection
     (if `selection_config["enabled"]`) and model as one Pipeline, so every learned step is

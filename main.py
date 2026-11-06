@@ -2,6 +2,7 @@ import shutil
 import tempfile
 
 import pandas as pd
+import numpy as np
 
 from src.config import load_yaml_config
 from src.data import load_data
@@ -9,7 +10,7 @@ from src.cleaning import clean_dataset
 from src.preprocessing import split_features_target, development_test_split
 from src.sklearn_extensions import CalendarHorizonSplit
 from src.model import build_pipeline
-from src.evaluation import build_scorers, cross_validate_pipeline, cv_report
+from src.evaluation import build_scorers, cross_validate_pipeline, cv_report, oof_classification_report
 from src.tuning import tune_pipeline, nested_cross_validate, tuning_report
 
 def main():
@@ -34,11 +35,14 @@ def main():
         pipeline = build_pipeline(preprocessing_config, config["models"], config["feature_selection"], memory=cache_dir)
         pipeline.verbose = config.get("pipeline_verbose_enabled", False)
     
-        # ----- Cross-Validate Selected Model -----
-    
+        # ----- Cross-Validate Selected Model ----- #
+
+        selected_model = config["models"]["selected_model"]
         cv_config = config["cv"]
         selection_metric = cv_config["selection_metric"]
         metrics = cv_config["metrics"]
+        scorers = build_scorers(metrics)
+        n_jobs = cv_config.get("n_jobs", 1)
         
         outer_cv = CalendarHorizonSplit(
             date_column="purchase_date",
@@ -47,43 +51,56 @@ def main():
             n_splits=cv_config["outer_splits"]
         )
     
-        # Not used yet
         inner_cv = CalendarHorizonSplit(
             date_column="purchase_date",
             horizon_length_days=cv_config["horizon_length_days"],
             validation_length_days=cv_config["validation_length_days"],
             n_splits=cv_config["inner_splits"]
         )
-    
-        scorers = build_scorers(metrics)
-        fold_scores, _ = cross_validate_pipeline(
+
+        floor_pipeline = build_pipeline(preprocessing_config, {"selected_model": "dummy"})
+        floor_scores, _ = cross_validate_pipeline(
+            floor_pipeline,
+            X_dev,
+            y_clf_dev,
+            outer_cv,
+            {selection_metric: scorers[selection_metric]},
+            selection_metric,
+            n_jobs
+        )
+        
+        fold_scores, oof_proba = cross_validate_pipeline(
             pipeline,
             X_dev,
             y_clf_dev,
             outer_cv,
             scorers,
             selection_metric,
-            cv_config.get("n_jobs", 1),
+            n_jobs,
         )
+
+        floor, untuned = floor_scores["validation"].mean(), fold_scores["validation"].mean()
+
+        print("\nDefault hyperparameters (config.yaml)")
+        print(f"  {selection_metric}: {untuned:.3f} ± {fold_scores['validation'].std(ddof=1):.3f}   "
+              f"train-validation gap: {fold_scores['gap'].mean():+.3f}   no-model floor: {floor:.3f}")
+        report = (f"Hyperparameters from config.yaml: {config["models"][selected_model]}\n\n"
+                  + cv_report(fold_scores, metrics, selection_metric, "Cross-validation")
+                  + f"\n\nNo-model floor (dummy, same folds): {selection_metric} = {floor:.3f}")
+        final_scores = fold_scores
     
-        report = cv_report(
-            fold_scores,
-            metrics,
-            selection_metric,
-            "Default model: chronological CV"
-        )
+        # ----- Hyperparameter Tuning ----- #
     
-        # ----- Hyperparameter Tuning -----
-    
-        tuning_config = config["tuning"]
-        if tuning_config["enabled"]:
-            selected_model = config["models"]["selected_model"]
+        tuning_config = config.get("tuning", {})
+        tuning_enabled = tuning_config.get("enabled", False)
+        if tuning_enabled:
             search_space = dict(tuning_config["search_spaces"][selected_model])
     
             if config["feature_selection"]["enabled"]:
                 search_space.update(config["feature_selection"].get("search_space", {}))
-    
-            fold_scores, _ = nested_cross_validate(
+
+            print(f"\nTuning {tuning_config["n_trials"]} trials, nested CV", flush=True)
+            final_scores, oof_proba = nested_cross_validate(
                 pipeline,
                 X_dev,
                 y_clf_dev,
@@ -94,11 +111,11 @@ def main():
                 search_space,
                 tuning_config["n_trials"],
                 tuning_config["random_state"],
-                n_jobs=cv_config.get("n_jobs", 1)
+                n_jobs=n_jobs
             )
     
             report += "\n\n" + cv_report(
-                fold_scores,
+                final_scores,
                 metrics,
                 selection_metric,
                 "Nested chronological CV"
@@ -114,18 +131,33 @@ def main():
                 search_space,
                 tuning_config["n_trials"],
                 tuning_config["random_state"],
-                n_jobs=cv_config.get("n_jobs", 1)
+                n_jobs=n_jobs
             )
+
+            print("  Chosen hyperparameters:")
+            for name, value in study.best_params.items():
+                print(f"    {name.replace('model__', ''):<20s} {value:.4g}" if isinstance(value, float)
+                      else f"    {name.replace('model__', ''):<20s} {value}")
     
             report += "\n\n" + tuning_report(
                 study,
-                fold_scores,
+                final_scores,
                 selection_metric
             )
+
+            print(f"\nAll metrics ({'tuned model' if tuning_enabled else 'default hyperparameters'}, mean ± std)")
+            for name in metrics:
+                print(f"  {name:<18s} {final_scores[name].mean():.3f} ± {final_scores[name].std(ddof=1):.3f}")
+
+            # oof is broken rn
+            # valid = np.isnan(oof_proba)
+            # report += "\n\n" + oof_classification_report(y_clf_dev.iloc[valid], oof_proba[valid])
         
         print(report)
 
-        # pipeline.fit
+        # ----- Fit Final Pipeline ----- #
+        pipeline.fit(X_dev, y_clf_dev)
+        
 
         pipeline.memory = None
         shutil.rmtree(cache_dir, ignore_errors=True)
