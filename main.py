@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from datetime import datetime
 
 import pandas as pd
 import numpy as np
@@ -12,9 +13,11 @@ from src.sklearn_extensions import CalendarHorizonSplit
 from src.model import build_pipeline
 from src.evaluation import build_scorers, cross_validate_pipeline, cv_report, oof_classification_report
 from src.tuning import tune_pipeline, nested_cross_validate, tuning_report
+from src.results import save_run, save_scores
 
 def main():
     config = load_yaml_config()
+    run = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Load and clean the dataset
     df_raw = load_data(config["data"]["csv_paths"]["train"])
@@ -93,10 +96,11 @@ def main():
     
         tuning_config = config.get("tuning", {})
         tuning_enabled = tuning_config.get("enabled", False)
+        selection_enabled = config["feature_selection"].get("enabled", False)
         if tuning_enabled:
             search_space = dict(tuning_config["search_spaces"][selected_model])
     
-            if config["feature_selection"]["enabled"]:
+            if selection_enabled:
                 search_space.update(config["feature_selection"].get("search_space", {}))
 
             print(f"\nTuning {tuning_config["n_trials"]} trials, nested CV", flush=True)
@@ -149,18 +153,47 @@ def main():
             for name in metrics:
                 print(f"  {name:<18s} {final_scores[name].mean():.3f} ± {final_scores[name].std(ddof=1):.3f}")
 
-            # oof is broken rn
-            # valid = np.isnan(oof_proba)
-            # report += "\n\n" + oof_classification_report(y_clf_dev.iloc[valid], oof_proba[valid])
-        
-        print(report)
+            valid = np.isfinite(oof_proba)
+            report += "\n\n" + oof_classification_report(y_clf_dev.iloc[valid], oof_proba[valid])
 
         # ----- Fit Final Pipeline ----- #
         pipeline.fit(X_dev, y_clf_dev)
-        
+        refit = f"Final model: {selected_model} refit on all {len(X_dev)} development rows."
+        if selection_enabled:
+            all_features = pipeline.named_steps["prep"].get_feature_names_out()
+            kept = pipeline.named_steps["select"].get_feature_names_out(all_features)
+            refit += f"\nFeatures kept: {len(kept)} of {len(all_features)}: {', '.join(kept)}"
+        report += "\n" + refit + "\n"
 
-        pipeline.memory = None
+        row = {
+            "run": run, 
+            "data": config["data"]["csv_paths"]["train"], 
+            "model": selected_model, 
+            "tuned": tuning_enabled,
+            "encoder": config["preprocessing"]["encoder"], 
+            "scaler": config["preprocessing"]["scaler"],
+            "feature_selection": (f"min_votes {pipeline.named_steps['select'].min_votes}" if selection_enabled else "off"),
+            "params": str(config["models"].get(selected_model, {})), 
+            "tuned_params": str(study.best_params) if tuning_enabled else "",
+            "metric": selection_metric, 
+            "mean": final_scores["validation"].mean(),
+            "std": final_scores["validation"].std(ddof=1), 
+            "untuned": untuned, 
+            "floor": floor,
+           **{f"fold_{i}": score for i, score in enumerate(final_scores["validation"], start=1)}
+        }
+        runs = save_scores(config.get("output", {}).get("scoreboard", "results/runs.csv"), row)
+        same = runs[(runs["data"] == row["data"]) & (runs["metric"] == selection_metric)]
+        board = (same.sort_values("mean", ascending=False)
+                 [["run", "model", "tuned", "feature_selection", "mean", "std", "untuned", "floor"]]
+                 .rename(columns={"mean": selection_metric})
+                 .to_string(index=False, float_format=lambda v: f"{v:.3f}"))
+        print(f"\nScoreboard (runs on the same data and metric; best first)\n{board}")
+        report += f"\nScoreboard:\n{board}\n"
+
         shutil.rmtree(cache_dir, ignore_errors=True)
+        path = save_run(config.get("output", {}).get("results_dir", "results"), run, config, report)
+        print(f"\n{refit}\nFull report (per-fold tables, tuning, confusion matrix, fairness): {path}")
 
 
 if __name__ == "__main__":
