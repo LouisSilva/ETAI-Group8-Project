@@ -5,6 +5,8 @@ __pycache__/
 .ipynb_checkpoints/
 .vscode
 *.egg-info/
+
 catboost_info/
 
 results/
+models/

@@ -62,7 +62,7 @@ _MODELS = {
 def build_model(model_config: dict):
     selected_model = model_config["selected_model"]
 
-    params = model_config.get(selected_model, {}).get("params", {})
+    params = model_config.get(selected_model, {})
     return _MODELS[selected_model](**params)
 
 

@@ -1,9 +1,13 @@
 import shutil
 import tempfile
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import numpy as np
+import joblib
+
+from sklearn.base import clone
 
 from src.config import load_yaml_config
 from src.data import load_data
@@ -14,6 +18,8 @@ from src.model import build_pipeline
 from src.evaluation import build_scorers, cross_validate_pipeline, cv_report, oof_classification_report
 from src.tuning import tune_pipeline, nested_cross_validate, tuning_report
 from src.results import save_run, save_scores
+from src.kaggle_submission import create_kaggle_submission
+
 
 def main():
     config = load_yaml_config()
@@ -22,6 +28,7 @@ def main():
     # Load and clean the dataset
     df_raw = load_data(config["data"]["csv_paths"]["train"])
     df_cleaned = clean_dataset(df_raw, config["cleaning"]["train"])
+    # df_cleaned = engineer_features(df_cleaned)
 
     # Create a train and validation set for both the classification and regression task. clf = classification, reg = regression
     preprocessing_config = config["preprocessing"]
@@ -87,7 +94,7 @@ def main():
         print("\nDefault hyperparameters (config.yaml)")
         print(f"  {selection_metric}: {untuned:.3f} ± {fold_scores['validation'].std(ddof=1):.3f}   "
               f"train-validation gap: {fold_scores['gap'].mean():+.3f}   no-model floor: {floor:.3f}")
-        report = (f"Hyperparameters from config.yaml: {config["models"][selected_model]}\n\n"
+        report = (f"Hyperparameters from config.yaml: {config["models"].get(selected_model, {})}\n\n"
                   + cv_report(fold_scores, metrics, selection_metric, "Cross-validation")
                   + f"\n\nNo-model floor (dummy, same folds): {selection_metric} = {floor:.3f}")
         final_scores = fold_scores
@@ -101,7 +108,7 @@ def main():
             search_space = dict(tuning_config["search_spaces"][selected_model])
     
             if selection_enabled:
-                search_space.update(config["feature_selection"].get("search_space", {}))
+                search_space.update(config["feature_selection"].get("search_spaces", {}))
 
             print(f"\nTuning {tuning_config["n_trials"]} trials, nested CV", flush=True)
             final_scores, oof_proba = nested_cross_validate(
@@ -194,6 +201,16 @@ def main():
         shutil.rmtree(cache_dir, ignore_errors=True)
         path = save_run(config.get("output", {}).get("results_dir", "results"), run, config, report)
         print(f"\n{refit}\nFull report (per-fold tables, tuning, confusion matrix, fairness): {path}")
+
+        # ----- Kaggle Submission ----- #
+        final_pipeline = clone(pipeline).set_params(memory=None)
+
+        # Train on all labeled observations
+        X_full, y_clf_full, _ = split_features_target(df_cleaned, preprocessing_config)
+        valid = y_clf_full.isin([0, 1])
+        final_pipeline.fit(X_full.loc[valid], y_clf_full.loc[valid].astype(int))
+
+        create_kaggle_submission(final_pipeline, X_full, config)
 
 
 if __name__ == "__main__":

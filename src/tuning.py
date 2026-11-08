@@ -84,8 +84,17 @@ def nested_cross_validate(
         X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
         X_val, y_val = X.iloc[val_idx], y.iloc[val_idx]
 
-        best_pipeline, study = tune_pipeline(pipeline, X_train, y_train, inner_cv, scorers[selection_metric],
-                                             search_space, n_trials, random_state, n_jobs)
+        best_pipeline, study = tune_pipeline(
+            pipeline, 
+            X_train,
+            y_train, 
+            inner_cv, 
+            scorers[selection_metric],
+            search_space, 
+            n_trials, 
+            random_state, 
+            n_jobs
+        )
         best_pipeline.fit(X_train, y_train)
 
         train_score = scorers[selection_metric](best_pipeline, X_train, y_train)

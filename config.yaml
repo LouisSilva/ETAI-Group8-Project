@@ -76,7 +76,8 @@ cleaning:
 preprocessing:
   classification_target: "repeat_purchase_90d"
   regression_target: "spend_next_90d"
-  drop_columns: ["ID", "customer_id", "random_noise"]
+  drop_columns: ["ID", "customer_id", "random_noise", "gross_total", "net_total", "total_tax", "cost", "total_shipping", "total_global_discount", "total_line_item_discount", "invoice_count_current_purchase", "details_count"]
+  # drop_columns: ["ID", "customer_id"]
   encoder: "onehot"
   scaler: "robust"
   mnar_indicator_sources: []
@@ -136,12 +137,12 @@ models:
 cv:
   validation_length_days: 180
   horizon_length_days: 90
-  outer_splits: 3
+  outer_splits: 5
   inner_splits: 3
   # Reported for every run. fbeta_<beta> weights recall beta times as much as precision.
   metrics: ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "fbeta_2", "roc_auc", "average_precision"]
-  selection_metric: "roc_auc" # "roc_auc"
-  n_jobs: -1
+  selection_metric: "f1"
+  n_jobs: 1
 
 
 feature_selection:
@@ -152,10 +153,16 @@ feature_selection:
     select__min_votes: {type: int, low: 1, high: 3}
 
 
+# threshold_tuning:
+#     enabled: true
+#     search_spaces:
+
+
 tuning:
   enabled: true
   n_trials: 200
   random_state: 42
+  
   # Keys are Pipeline parameter names. Types: int / float (low, high, log) or categorical (choices).
   search_spaces:
     decision_tree:
@@ -205,6 +212,10 @@ tuning:
       model__reg_lambda: {type: float, low: 0.01, high: 10.0, log: true}
       model__reg_alpha: {type: float, low: 0.001, high: 10.0, log: true}
       model__gamma: {type: float, low: 0.0, high: 5.0}
-     # model__max_bin: {type: int, low: 64, high: 512, step: 64}
-     # model__colsample_bynode: {type: float, low: 0.5, high: 1.0}
-     # model__max_delta_step: {type: int, low: 0, high: 10}
+      model__colsample_bylevel: {type: float, low: 0.75, high: 1.0}
+      model__colsample_bynode: {type: float, low: 0.75, high: 1.0}
+      model__max_bin: {type: int, low: 64, high: 512}
+      model__grow_policy: {type: categorical, choices: ["depthwise", "lossguide"]}
+      model__sampling_method: {type: categorical, choices: ["uniform", "gradient_based"]}
+      model__max_delta_step: {type: int, low: 0, high: 5}
+      model__scale_pos_weight: {type: float, low: 0.5, high: 2.0}

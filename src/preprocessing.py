@@ -68,9 +68,15 @@ def development_test_split(
     )
 
 
-_SCALERS = {"none": "passthrough", "standard": StandardScaler, "minmax": MinMaxScaler, "robust": RobustScaler}
+_SCALERS = {
+    "none": "passthrough",
+    "standard": StandardScaler,
+    "minmax": MinMaxScaler,
+    "robust": RobustScaler
+}
 _ENCODERS = {
     "onehot": lambda seed: OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+    # "onehot2": lambda seed: OneHotEncoder(handle_unknown="infrequent_if_exist", min_frequency=10, sparse_output=False),
     "ordinal": lambda seed: OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
     "count": lambda seed: CountEncoder(handle_unknown=0, handle_missing=0),
 }
