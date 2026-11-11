@@ -10,7 +10,7 @@ from .cleaning import clean_dataset
 
 def create_kaggle_submission(
     pipeline: Pipeline,
-    X_full: pd.DataFrame,
+    X: pd.DataFrame,
     config: dict
 ) -> None:
     """
@@ -23,7 +23,7 @@ def create_kaggle_submission(
 
     drop_columns = set(config["preprocessing"].get("drop_columns", []))
     X_kaggle = df_kaggle.drop(columns=list(drop_columns), errors="ignore").copy()
-    X_kaggle = X_kaggle[X_full.columns]
+    X_kaggle = X_kaggle[X.columns]
 
     predictions = pipeline.predict(X_kaggle).astype(int)
     submission = pd.DataFrame({
@@ -39,5 +39,4 @@ def create_kaggle_submission(
     Path("results").mkdir(exist_ok=True)
     submission.to_csv("results/submission.csv", index=False)
 
-    # Path("models").mkdir(exist_ok=True)
-    # joblib.dump(pipeline, "models/classification.joblib")
+    

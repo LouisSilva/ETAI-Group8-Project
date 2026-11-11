@@ -130,3 +130,9 @@ class ClassificationReport:
             )
 
         return "\n\n".join(sections)
+
+
+@dataclass
+class RegressionReport:
+    run_id: str
+    config: dict
