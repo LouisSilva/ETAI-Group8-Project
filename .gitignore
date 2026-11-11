@@ -2,11 +2,17 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
-.ipynb_checkpoints/
 .vscode
 *.egg-info/
-
 catboost_info/
 
-results/
 models/
+
+# Ignore everything inside results/
+results/*
+
+# Except current_kaggle_submission and its contents
+!results/current_kaggle_submission/
+!results/current_kaggle_submission/**
+
+.ipynb_checkpoints/

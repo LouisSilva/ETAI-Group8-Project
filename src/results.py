@@ -4,6 +4,23 @@ import os
 import pandas as pd
 
 
+def build_scoreboard(runs: pd.DataFrame, row: dict) -> pd.DataFrame:
+    same = runs[
+        (runs["data"] == row["data"])
+        & (runs["metric"] == row["metric"])
+    ]
+
+    return (
+        same.sort_values("mean", ascending=False)
+        [[
+            "run_id", "model", "tuned",
+            "feature_selection", "mean",
+            "std", "untuned", "floor"
+        ]]
+        .rename(columns={"mean": row["metric"]})
+    )
+
+
 def save_scores(path: str, row: dict) -> pd.DataFrame:
     """Appends one run to the CSV at `path` (created if needed) and returns all runs."""
     runs = pd.read_csv(path, dtype={"run": str}) if os.path.exists(path) else pd.DataFrame()
