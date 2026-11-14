@@ -63,7 +63,7 @@ cleaning:
       customer_id: {min: 0}
       ID: {min: 0}
       
-  clients: # As in, the clients.csv
+  clients: # As in, the clientes.csv
     date_format: "%Y"
     column_types:
       int: ["customer_id"]
