@@ -1,3 +1,5 @@
+from typing import Self
+
 import numpy as np
 
 from sklearn.pipeline import Pipeline
@@ -102,7 +104,7 @@ class VoteSelector(SelectorMixin, BaseEstimator):
         self.min_votes = min_votes
         self.random_state = random_state
 
-    def fit(self, X, y) -> VoteSelector:
+    def fit(self, X, y) -> Self:
         forest = RandomForestClassifier(n_estimators=200, min_samples_leaf=20, random_state=self.random_state, n_jobs=1).fit(X, y)
         booster = GradientBoostingClassifier(random_state=self.random_state).fit(X, y)
         lasso = LogisticRegression(l1_ratio=1.0, C=0.01, solver="liblinear").fit(X, y)

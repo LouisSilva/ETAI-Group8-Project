@@ -60,3 +60,11 @@ venv\Scripts\Activate.ps1
 ```cmd
 venv\Scripts\activate.bat
 ```
+
+## Usage
+
+To train a classification model and tune the pipeline, run:
+
+```cmd
+python main.py train classification
+```

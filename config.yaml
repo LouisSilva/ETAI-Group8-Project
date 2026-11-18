@@ -113,7 +113,7 @@ split:
 
 
 models:
-  selected_model: "naive_bayes"
+  selected_model: "dummy"
 
   logistic_regression:
     max_iter: 2000
@@ -175,7 +175,7 @@ feature_selection:
 
 
 tuning:
-  enabled: true
+  enabled: false
   n_trials: 5
   random_state: 42
   
@@ -235,3 +235,8 @@ tuning:
       model__sampling_method: {type: categorical, choices: ["uniform", "gradient_based"]}
       model__max_delta_step: {type: int, low: 0, high: 5}
       model__scale_pos_weight: {type: float, low: 0.5, high: 2.0}
+
+
+output:
+  model_path: "./models/model.joblib"
+  results_dir: "./results"
