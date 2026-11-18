@@ -27,6 +27,7 @@ def run_classification_experiment(
     run_id: str,
 ) -> ExperimentResult:
     """Evaluate and tune using development data only; return an unfitted pipeline."""
+    print(f"Starting classification experiment with config: {config}")
     preprocessing_config = config["preprocessing"]
     cv_config = config["cv"]
     selection_config = config["feature_selection"]

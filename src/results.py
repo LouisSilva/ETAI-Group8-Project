@@ -60,6 +60,7 @@ def save_run(results_dir: str, run: str, config: dict, report_text: str) -> str:
         f"params={config['models'].get(selected_model, {})}\n"
         f"Preprocessing: encoder={config['preprocessing']['encoder']}  "
         f"scaler={config['preprocessing']['scaler']}\n"
+        f"numeric imputer={config['preprocessing'].get('imputation', {}).get('numeric_strategy', 'median')}\n"
         f"CV: chronological, {cv['outer_splits']} outer folds, "
         f"{cv['inner_splits']} inner folds\n"
         f"CV validation length: {cv['validation_length_days']} days  "

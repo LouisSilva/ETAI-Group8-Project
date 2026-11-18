@@ -56,7 +56,7 @@ def main():
     final_classifier.fit(X.loc[labelled], y_clf.loc[labelled].astype(int))
 
     # ----- Create Kaggle submission ----- #
-    create_kaggle_submission(final_classifier, X, config)
+    # create_kaggle_submission(final_classifier, X, config)
 
     # Future regression stage: 
     # 1). Train and tune the regression pipeline using `X_dev`, restricted to rows where `y_clf_dev == 1` and `y_reg_dev` is known.

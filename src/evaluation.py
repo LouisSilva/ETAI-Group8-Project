@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 
 from sklearn.metrics import classification_report, confusion_matrix, fbeta_score, get_scorer, make_scorer
@@ -19,7 +20,7 @@ def build_scorers(metrics: list) -> dict:
     return scorers
 
 
-def cross_validate_pipeline(pipeline, X, y, cv, scorers: dict, selection_metric: str, n_jobs: int = 1):
+def cross_validate_pipeline(pipeline, X, y, cv, scorers: dict, selection_metric: str, n_jobs: int = 1) -> tuple[pd.DataFrame, NDArray[np.float64]]:
     """
     Fits a fresh copy of `pipeline` (preprocessing included) on each fold's training part and
     scores it on that fold's validation part, on every metric in `scorers`.
@@ -32,14 +33,14 @@ def cross_validate_pipeline(pipeline, X, y, cv, scorers: dict, selection_metric:
         exactly once).
     """
     scores = cross_validate(
-        pipeline, 
-        X, 
-        y, 
-        cv=cv, 
-        scoring=scorers, 
+        pipeline,
+        X,
+        y,
+        cv=cv,
+        scoring=scorers,
         return_train_score=True,
-        return_estimator=True, 
-        return_indices=True, 
+        return_estimator=True,
+        return_indices=True,
         n_jobs=n_jobs
     )
     

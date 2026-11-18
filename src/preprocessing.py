@@ -1,10 +1,15 @@
 import math
+from typing import Any
+
 import pandas as pd
 
 from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, TargetEncoder, StandardScaler, MinMaxScaler, RobustScaler
+from category_encoders import CountEncoder
 
 
 def split_features_target(df: pd.DataFrame, preprocessing_config: dict) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
@@ -68,38 +73,68 @@ def development_test_split(
     )
 
 
-_SCALERS = {
+_SCALERS: dict[str, Any] = {
     "none": "passthrough",
     "standard": StandardScaler,
     "minmax": MinMaxScaler,
     "robust": RobustScaler
 }
-_ENCODERS = {
+
+_ENCODERS: dict[str, Any] = {
     "onehot": lambda seed: OneHotEncoder(handle_unknown="ignore", sparse_output=False),
     # "onehot2": lambda seed: OneHotEncoder(handle_unknown="infrequent_if_exist", min_frequency=10, sparse_output=False),
     "ordinal": lambda seed: OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
     "count": lambda seed: CountEncoder(handle_unknown=0, handle_missing=0),
 }
 
+# Numeric imputers. "iterative" is MICE with one completed dataset; "random_forest" is the
+# missForest idea (each column predicted from the others by a random forest). Both learn only
+# from the feature columns, never from the target, so they also run on data to predict.
+_NUMERIC_IMPUTERS: dict[str, Any] = {
+    "simple_imputer": lambda cfg, seed: SimpleImputer(strategy=cfg.get("strategy", "median")),
+    "knn": lambda cfg, seed: KNNImputer(n_neighbors=cfg.get("n_neighbors", 5)),
+    "iterative": lambda cfg, seed: IterativeImputer(max_iter=cfg.get("max_iter", 10), random_state=seed),
+    "random_forest": lambda cfg, seed: IterativeImputer(
+        estimator=RandomForestRegressor(
+            n_estimators=cfg.get("n_estimators", 50), 
+            min_samples_leaf=cfg.get("min_samples_leaf", 5), 
+            random_state=seed, 
+            n_jobs=cfg.get("n_jobs", 1)),
+        max_iter=cfg.get("max_iter", 10), 
+        random_state=seed),
+}
+
+_CATEGORICAL_IMPUTERS: dict[str, Any] = {
+    "simple_imputer": lambda cfg, seed: SimpleImputer(strategy=cfg.get("strategy", "most_frequent")),
+}
+
 
 def build_preprocessor(preprocessing_config: dict) -> ColumnTransformer:
     """
-    Builds the unfitted ColumnTransformer described by `preprocessing_config`: imputation and
-    scaling for numeric columns, imputation and encoding for categorical ones, and the
-    missingness flags passed through. Every encoder tolerates unseen categories.
+    Builds the unfitted ColumnTransformer described by `preprocessing_config`: scaling and 
+    imputation for numeric columns (scaled first, so distance-based imputers compare columns
+    on one scale; scalers ignore NaN when fitting), imputation and encoding for categorical 
+    columns, and the missingness flags passed through. Every encoder tolerates unseen categories.
     """
-    imputation = preprocessing_config.get("imputation", {})
     scaler_factory = _SCALERS[preprocessing_config["scaler"]]
     scaler = scaler_factory() if callable(scaler_factory) else scaler_factory
     encoder = _ENCODERS[preprocessing_config["encoder"]](preprocessing_config.get("random_state"))
 
+    selected_numeric_imputer = preprocessing_config["numeric_imputation"].get("selected_imputer", "simple_imputer")
+    if selected_numeric_imputer not in _NUMERIC_IMPUTERS:
+        raise ValueError(f"Unknown numeric_strategy: {selected_numeric_imputer}. Options: {list(_NUMERIC_IMPUTERS)}")
+
     numeric_pipeline = Pipeline([
-        ("impute", SimpleImputer(strategy=imputation.get("numeric_strategy", "median"))),
         ("scale", scaler),
+        ("impute", _NUMERIC_IMPUTERS[selected_numeric_imputer](preprocessing_config["numeric_imputation"].get(selected_numeric_imputer, {}), preprocessing_config.get("random_state"))),
     ])
+
+    selected_categorical_imputer = preprocessing_config["categorical_imputation"].get("selected_imputer", "simple_imputer")
+    if selected_categorical_imputer not in _CATEGORICAL_IMPUTERS:
+        raise ValueError(f"Unknown numeric_strategy: {selected_categorical_imputer}. Options: {list(_CATEGORICAL_IMPUTERS)}")
     
     categorical_pipeline = Pipeline([
-        ("impute", SimpleImputer(strategy=imputation.get("categorical_strategy", "most_frequent"))),
+        ("impute", _CATEGORICAL_IMPUTERS[selected_categorical_imputer](preprocessing_config["categorical_imputation"].get(selected_categorical_imputer, {}), preprocessing_config.get("random_state"))),
         ("encode", encoder),
     ])
     

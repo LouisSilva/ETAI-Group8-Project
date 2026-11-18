@@ -14,7 +14,7 @@ from xgboost import XGBClassifier
 from src.preprocessing import build_preprocessor
 
 
-def adaboost(max_depth: int = 1, **params):
+def adaboost(max_depth: int = 1, **params) -> AdaBoostClassifier:
     """
     AdaBoost over decision trees of depth `max_depth` (1 = stumps); `params` go to
     AdaBoostClassifier. The trees' depth is tuned as `model__estimator__max_depth`.
@@ -29,7 +29,7 @@ def oblique_random_forest(
     random_state=None, 
     n_jobs=None, 
     **tree_params
-):
+) -> BaggingClassifier:
     """
     A forest of oblique trees: each tree is fit on a bootstrap sample, on `n_components`
     random sparse linear combinations of the features (a new set per tree), so its splits are
@@ -98,11 +98,11 @@ class VoteSelector(SelectorMixin, BaseEstimator):
     rows only: a random forest and gradient boosting vote for features with above-average
     importance, an L1-penalised logistic regression for features it doesn't shrink to zero.
     """
-    def __init__(self, min_votes: int = 2, random_state=None):
+    def __init__(self, min_votes: int = 2, random_state=None) -> None:
         self.min_votes = min_votes
         self.random_state = random_state
 
-    def fit(self, X, y):
+    def fit(self, X, y) -> VoteSelector:
         forest = RandomForestClassifier(n_estimators=200, min_samples_leaf=20, random_state=self.random_state, n_jobs=1).fit(X, y)
         booster = GradientBoostingClassifier(random_state=self.random_state).fit(X, y)
         lasso = LogisticRegression(l1_ratio=1.0, C=0.01, solver="liblinear").fit(X, y)

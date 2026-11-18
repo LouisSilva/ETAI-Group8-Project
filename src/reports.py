@@ -1,5 +1,5 @@
 from typing import Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -50,6 +50,8 @@ class ClassificationReport:
             "tuned": self.study is not None,
             "encoder": config["preprocessing"]["encoder"],
             "scaler": config["preprocessing"]["scaler"],
+            "numerical_imputer": config["preprocessing"]["numeric_imputation"].get("selected_imputer", "simple_imputer"),
+            "categorical_imputer": config["preprocessing"]["categorical_imputation"].get("selected_imputer", "simple_imputer"),
             "feature_selection": (
                 f"min_votes {self.selected_min_votes}"
                 if self.selected_min_votes is not None
@@ -130,6 +132,8 @@ class ClassificationReport:
             )
 
         return "\n\n".join(sections)
+
+# TODO: maybe make stuff like model, metrics, metric (which should be renamed to `metric_to_optimize`), etc., an @property
 
 
 @dataclass

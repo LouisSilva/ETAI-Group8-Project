@@ -81,9 +81,30 @@ preprocessing:
   encoder: "onehot"
   scaler: "robust"
   mnar_indicator_sources: []
-  imputation:
-    numeric_strategy: "median"
-    categorical_strategy: "most_frequent"
+
+  numeric_imputation:
+    selected_imputer: "simple_imputer"
+
+    simple_imputer:
+      strategy: "median"
+
+    knn:
+      n_neighbours: 5
+
+    iterative:
+      max_iter: 10
+
+    random_forest:
+      n_estimators: 50,
+      min_samples_leaf: 5,
+      max_iter: 10,
+      n_jobs: -1
+
+  categorical_imputation:
+    selected_imputer: "simple_imputer"
+
+    simple_imputer:
+      strategy: "most_frequent"
 
 
 split:
@@ -92,7 +113,7 @@ split:
 
 
 models:
-  selected_model: "oblique_random_forest"
+  selected_model: "naive_bayes"
 
   logistic_regression:
     max_iter: 2000

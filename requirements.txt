@@ -1,6 +1,7 @@
 alembic==1.20.1
 asttokens==3.0.2
 catboost==1.2.10
+category_encoders==2.11.2
 cloudpickle==3.1.2
 colorama==0.4.6
 colorlog==6.12.0
