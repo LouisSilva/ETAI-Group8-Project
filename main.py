@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-import os
 import argparse
 import joblib
 
@@ -9,7 +8,7 @@ from src.data import load_data
 from src.cleaning import clean_dataset
 from src.preprocessing import split_features_target, development_test_split
 from src.experiments import run_classification_experiment
-from src.results import save_run, save_scores, build_scoreboard
+from src.reports import Scoreboard, save_report
 from src.kaggle_submission import create_kaggle_submission
 
 
@@ -41,13 +40,22 @@ def train_classification(is_save_model_enabled: bool, model_path: Path | None) -
 
     # ----- Save report and scoreboard ----- #
     report = experiment.report
-    row = report.to_scoreboard_row()
-    runs = save_scores(config.get("output", {}).get("scoreboard", "results/runs.csv"), row)
-    report.scoreboard = build_scoreboard(runs, row)
-    report_path = save_run(config.get("output", {}).get("results_dir", "results"), run_id, config, str(report))
+    new_scoreboard_row = report.to_scoreboard_row()
 
-    print(f"CV: {row['mean']:.3f} ± {row['std']:.3f}")
-    print(f"Report saved: {report_path}")
+    output_cfg = config.get("output", {})
+    results_dir = Path(output_cfg.get("results_dir", "results"))
+
+    scoreboard = Scoreboard(task="classification", path=results_dir / "runs.csv")
+    scoreboard.save_score(new_scoreboard_row)
+
+    report_path = save_report(
+        path=results_dir / f"run_{run_id}.txt",
+        report=report,
+        scoreboard=scoreboard
+    )
+
+    print(f"CV: {new_scoreboard_row['mean']:.3f} ± {new_scoreboard_row['std']:.3f}")
+    print(f"Report saved to {report_path}")
 
     if not is_save_model_enabled: return
 

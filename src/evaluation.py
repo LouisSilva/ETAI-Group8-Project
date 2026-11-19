@@ -58,10 +58,10 @@ def cross_validate_pipeline(pipeline, X, y, cv, scorers: dict, selection_metric:
     return fold_scores, oof_proba
 
 
-def cv_report(fold_scores: pd.DataFrame, metrics: list, selection_metric: str, title: str) -> str:
+def cv_report(fold_scores: pd.DataFrame, metrics: list, selection_metric: str) -> str:
     """Per-fold table and the mean and std of every metric, as text."""
     lines = [
-        f"{title} ({len(fold_scores)} chronological folds, selection metric: {selection_metric})",
+        f"({len(fold_scores)} chronological folds, selection metric: {selection_metric}):",
         "",
         fold_scores.to_string(index=False, float_format=lambda v: f"{v:.3f}"),
         "",

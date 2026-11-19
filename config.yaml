@@ -113,7 +113,7 @@ split:
 
 
 models:
-  selected_model: "dummy"
+  selected_model: "gradient_boosting"
 
   logistic_regression:
     max_iter: 2000
@@ -175,7 +175,7 @@ feature_selection:
 
 
 tuning:
-  enabled: false
+  enabled: true
   n_trials: 5
   random_state: 42
   
