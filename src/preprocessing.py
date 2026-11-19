@@ -25,8 +25,8 @@ def split_features_target(df: pd.DataFrame, preprocessing_config: dict) -> tuple
     drop_columns.update([classification_target, regression_target])
 
     X = df.drop(columns=list(drop_columns), errors="ignore").copy()
-    y_classification = df[classification_target].copy()
-    y_regression = df[regression_target].copy()
+    y_classification = df.get(classification_target)
+    y_regression = df.get(regression_target)
 
     return X, y_classification, y_regression
 

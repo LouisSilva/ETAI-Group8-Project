@@ -1,4 +1,4 @@
-## Environment Setup
+# Environment Setup
 
 You only need to do steps 1 and 2 per machine.
 
@@ -61,10 +61,29 @@ venv\Scripts\Activate.ps1
 venv\Scripts\activate.bat
 ```
 
-## Usage
+# Usage
+
+## Train Command
 
 To train a classification model and tune the pipeline, run:
 
 ```cmd
 python main.py train classification
+```
+
+## Predict Command
+
+TODO: Create example showing how to use `--output_probability` and `--output_regression`
+
+### Kaggle Submission
+To create a Kaggle submission, do:
+
+```cmd
+python main.py predict models/classification.joblib --output_prediction --out results/kaggle_submission.csv
+```
+
+or equivalently
+
+```cmd
+python main.py predict models/classification.joblib --output_prediction --input data/test.csv --out results/kaggle_submission.csv
 ```

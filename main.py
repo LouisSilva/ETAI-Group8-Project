@@ -9,7 +9,7 @@ from src.cleaning import clean_dataset
 from src.preprocessing import split_features_target, development_test_split
 from src.experiments import run_classification_experiment
 from src.reports import Scoreboard, save_report
-from src.kaggle_submission import create_kaggle_submission
+from src.predict import predict_csv
 
 
 def train_classification(is_save_model_enabled: bool, model_path: Path | None) -> None:
@@ -83,7 +83,11 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
 
     # ----- Model Training Commands ----- #
-    train_parser = commands.add_parser("train", aliases=["t"], help="Train a classification or regression model and tune its pipeline")
+    train_parser = commands.add_parser(
+        "train", 
+        aliases=["t"], 
+        help="Train a classification or regression model and tune its pipeline"
+    )
     train_tasks = train_parser.add_subparsers(dest="task", required="True")
     train_options = argparse.ArgumentParser(add_help=False)
 
@@ -121,7 +125,81 @@ def main() -> None:
         model_path=args.model_path))
 
     # ----- predict.py Commands ----- #
-    # Here we will make the commands interface with predict.py, (copy the base pipeline). It will be made so you can tell it to only output the classification or regression result, or both (which will be used for the kaggle submission, cuz we don't want the regression result in that). The regression model would only be ran on observations where the classification model predicted `repeat_thingybob_90d` == 1
+    # main.py predict <path to classification.joblib> <OPTIONAL: path to regression.joblib>
+
+    # Flags: 
+    # --output_probability => if present, will append the `proba__repeat_purchase_90d` column which has the classifiers prediction probability for each observation.
+    # --output_prediction => if present, will append the `repeat_purchase_90d` column which has the classifiers prediction for each observation.
+    # --output_regression => if present, will append the `spend_next_90d` column which has the regressors prediction for each observation.
+
+    # At least one of those flags must be present.
+    # If the --output_regression flag is used, then the argument <OPTIONAL: path to regression.joblib> must've been used too, so raise an error if --output_regression was used but no regression joblib was given. 
+
+    predict_parser = commands.add_parser(
+        "predict",
+        aliases=["p"],
+        help="Predict repeat purchases and/or future spending"
+    )
+
+    predict_parser.add_argument(
+        "classifier",
+        type=Path,
+        help="Path to the fitted classification pipeline"
+    )
+
+    predict_parser.add_argument(
+        "regressor",
+        nargs="?", # ? means 0 or 1 args
+        type=Path,
+        default=None,
+        help="Optional path to the fitted regression pipeline"
+    )
+
+    predict_parser.add_argument(
+        "--output_probability", "--output_proba", "-op",
+        action="store_true",
+        help="Include the `repeat_purchase_90d` probability"
+    )
+
+    predict_parser.add_argument(
+        "--output_prediction", "--output_pred", "-oc",
+        action="store_true",
+        help="Include the `repeat_purchase_90d` prediction"
+    )
+
+    predict_parser.add_argument(
+        "--output_regression", "--output_reg", "-or",
+        action="store_true",
+        help="Include the `spend_next_90d` prediction"
+    )
+
+    predict_parser.add_argument(
+        "--input", "-i",
+        dest="input_path",
+        type=Path,
+        default=None,
+        help="Input CSV path (default: test.csv from config.yaml)"
+    )
+
+    predict_parser.add_argument(
+        "--out", "-o",
+        dest="output_path",
+        type=Path,
+        default=None,
+        help="Output CSV path (default: results/predictions.csv)"
+    )
+
+    predict_parser.set_defaults(
+        func=lambda args: predict_csv(
+            classifier_path=args.classifier,
+            regressor_path=args.regressor,
+            input_path=args.input_path,
+            output_path=args.output_path,
+            output_probability=args.output_probability,
+            output_prediction=args.output_prediction,
+            output_regression=args.output_regression,
+        )
+    )
 
     # ----- Client Interface Commands ----- #
     # Read the project pdf guide
