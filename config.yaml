@@ -1,6 +1,7 @@
 # Pipeline configuration.
 
-pipeline_verbose_enabled: False
+debug:
+  pipeline_verbose_enabled: False
 
 
 data:
@@ -80,31 +81,36 @@ preprocessing:
   # drop_columns: ["ID", "customer_id"]
   encoder: "onehot"
   scaler: "robust"
-  mnar_indicator_sources: []
 
   numeric_imputation:
-    selected_imputer: "simple_imputer"
+    selected_imputer: "iterative"
 
     simple_imputer:
       strategy: "median"
+      add_indicator: true
 
     knn:
       n_neighbours: 5
+      add_indicator: true
 
     iterative:
-      max_iter: 10
+      max_iter: 100
+      add_indicator: true
 
     random_forest:
-      n_estimators: 50,
-      min_samples_leaf: 5,
-      max_iter: 10,
-      n_jobs: -1
+      n_estimators: 10
+      min_samples_leaf: 5
+      max_iter: 2
+      # n_nearest_features: 10
+      add_indicator: true
+      n_jobs: 1
 
   categorical_imputation:
     selected_imputer: "simple_imputer"
 
     simple_imputer:
       strategy: "most_frequent"
+      add_indicator: true
 
 
 split:
@@ -113,7 +119,7 @@ split:
 
 
 models:
-  selected_model: "gradient_boosting"
+  selected_model: "catboost"
 
   logistic_regression:
     max_iter: 2000
@@ -131,7 +137,7 @@ models:
     n_estimators: 200
     n_components: 10
     random_state: 42
-    n_jobs: 1
+    n_jobs: -1
   
   adaboost:
     max_depth: 1
@@ -151,8 +157,11 @@ models:
     learning_rate: 0.05
     max_depth: 4
     random_state: 42
-    device: "cuda"
-    n_jobs: 1
+    n_jobs: -1
+
+    # If you dont have an nvidia gpu, comment these out (if you use the xgboost model)
+    # device: "cuda"
+    # tree_method: "hist"
 
 
 cv:
@@ -163,20 +172,22 @@ cv:
   # Reported for every run. fbeta_<beta> weights recall beta times as much as precision.
   metrics: ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "fbeta_2", "roc_auc", "average_precision"]
   selection_metric: "f1"
-  n_jobs: -1
+  n_jobs: 3 # Around `inner_splits` or `inner_splits + 1` works best because during each optuna trial, only `inner_splits` folds can run concurrently
 
 
 feature_selection:
   enabled: true
   min_votes: 2
+  lasso_C: 0.01
   random_state: 42
   search_spaces:
     select__min_votes: {type: int, low: 1, high: 3}
+    # select__lasso_C: {type: float, low: 0.001, high: 10.0, log: true}
 
 
 tuning:
   enabled: true
-  n_trials: 5
+  n_trials: 100
   random_state: 42
   
   # Keys are Pipeline parameter names. Types: int / float (low, high, log) or categorical (choices).
@@ -238,5 +249,5 @@ tuning:
 
 
 output:
-  model_path: "./models/model.joblib"
+  model_path: "./models/classification.joblib"
   results_dir: "./results"

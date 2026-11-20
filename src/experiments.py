@@ -1,4 +1,5 @@
 import tempfile
+from time import perf_counter
 from dataclasses import dataclass
 
 import numpy as np
@@ -27,7 +28,10 @@ def run_classification_experiment(
     run_id: str,
 ) -> ExperimentResult:
     """Evaluate and tune using development data only; return an unfitted pipeline."""
-    print(f"Starting classification experiment with config: {config}")
+    print(f"Starting classification experiment...")
+
+    t0 = perf_counter()
+
     preprocessing_config = config["preprocessing"]
     cv_config = config["cv"]
     selection_config = config["feature_selection"]
@@ -58,7 +62,7 @@ def run_classification_experiment(
             config["feature_selection"], 
             memory=cache_dir
         )
-        pipeline.verbose = config.get("pipeline_verbose_enabled", False)
+        pipeline.verbose = config["debug"].get("pipeline_verbose_enabled", False)
 
         # Baseline/floor CV
         floor_pipeline = build_pipeline(preprocessing_config, {"selected_model": "dummy"})
@@ -159,5 +163,5 @@ def run_classification_experiment(
         # Remove the cache location and fitted state before returning
         selected_pipeline = clone(pipeline).set_params(memory=None)
 
+    print(f"Experiment complete. Runtime: {(perf_counter() - t0):.2f} seconds")
     return ExperimentResult(selected_pipeline=selected_pipeline, report=report)
-

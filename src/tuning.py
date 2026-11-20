@@ -129,8 +129,8 @@ def tuning_report(study, nested_scores: pd.DataFrame, selection_metric: str, top
               .to_string(index=False, float_format=lambda v: f"{v:.3f}"),
         "",
         "Optimism check (nested CV):",
-        f"  tuning score inside the outer folds (inner_best) mean = {inner:.3f}",
-        f"  honest score on the outer folds (validation)     mean = {outer:.3f}",
-        f"  optimism = {inner - outer:+.3f}   -> report the honest one",
+        f"  tuning score inside the outer folds (inner_best) mean = {inner:.5f}",
+        f"  honest score on the outer folds (validation)     mean = {outer:.5f}",
+        f"  optimism = {inner - outer:+.5f}   -> report the honest one",
     ]
     return "\n".join(lines)

@@ -100,17 +100,36 @@ class VoteSelector(SelectorMixin, BaseEstimator):
     rows only: a random forest and gradient boosting vote for features with above-average
     importance, an L1-penalised logistic regression for features it doesn't shrink to zero.
     """
-    def __init__(self, min_votes: int = 2, random_state=None) -> None:
+    def __init__(
+        self, 
+        min_votes: int = 2, 
+        lasso_C: float = 0.01,
+        random_state: int = None
+    ) -> None:
         self.min_votes = min_votes
+        self.lasso_C = lasso_C
         self.random_state = random_state
 
     def fit(self, X, y) -> Self:
-        forest = RandomForestClassifier(n_estimators=200, min_samples_leaf=20, random_state=self.random_state, n_jobs=1).fit(X, y)
+        forest = RandomForestClassifier(
+            n_estimators=200, 
+            min_samples_leaf=20, 
+            random_state=self.random_state, 
+            n_jobs=1
+        ).fit(X, y)
+        
         booster = GradientBoostingClassifier(random_state=self.random_state).fit(X, y)
-        lasso = LogisticRegression(l1_ratio=1.0, C=0.01, solver="liblinear").fit(X, y)
+
+        lasso = LogisticRegression(
+            l1_ratio=1.0, 
+            C=self.lasso_C, 
+            solver="liblinear"
+        ).fit(X, y)
+
         self.votes_ = ((forest.feature_importances_ > forest.feature_importances_.mean()).astype(int)
                        + (booster.feature_importances_ > booster.feature_importances_.mean())
                        + (np.abs(lasso.coef_[0]) > 1e-8))
+        
         self.support_ = self.votes_ >= self.min_votes
         return self
 

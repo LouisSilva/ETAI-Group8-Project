@@ -76,6 +76,7 @@ python main.py train classification
 TODO: Create example showing how to use `--output_probability` and `--output_regression`
 
 ### Kaggle Submission
+
 To create a Kaggle submission, do:
 
 ```cmd

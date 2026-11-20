@@ -145,7 +145,7 @@ class ClassificationReport:
             f"{len(self.selected_features)} of {self.total_features}:\n" + ", ".join(self.selected_features)
             if self.selected_features is not None
             else "All"
-            )
+        )
 
         return dedent(f"""
 Run ID: {self.run_id}
@@ -220,14 +220,13 @@ class Scoreboard:
         It will create an empty DataFrame if the CSV doesn't exist."""
         self.runs = (
             pd.read_csv(self.path, dtype={"run_id": str}) 
-            if self.path.exists
+            if self.path.exists()
             else pd.DataFrame()
         )
 
     def save_score(self, new_scoreboard_row: dict) -> None:
         """Appends one run (`new_scoreboard_row`) to the CSV at `self.path` (created if needed)."""
         self.runs = pd.concat([self.runs, pd.DataFrame([new_scoreboard_row])], ignore_index=True)
-
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.runs.to_csv(self.path, index=False)
 
@@ -239,11 +238,12 @@ class Scoreboard:
             "run_id",
             "model",
             "tuned",
+            "encoder",
+            "scaler",
+            "numerical_imputer",
             "feature_selection",
             "mean",
             "std",
-            "untuned",
-            "floor",
         ]
 
         return matching.sort_values("mean", ascending=False)[columns]

@@ -91,21 +91,40 @@ _ENCODERS: dict[str, Any] = {
 # missForest idea (each column predicted from the others by a random forest). Both learn only
 # from the feature columns, never from the target, so they also run on data to predict.
 _NUMERIC_IMPUTERS: dict[str, Any] = {
-    "simple_imputer": lambda cfg, seed: SimpleImputer(strategy=cfg.get("strategy", "median")),
-    "knn": lambda cfg, seed: KNNImputer(n_neighbors=cfg.get("n_neighbors", 5)),
-    "iterative": lambda cfg, seed: IterativeImputer(max_iter=cfg.get("max_iter", 10), random_state=seed),
+    "simple_imputer": lambda cfg, seed: SimpleImputer(
+        strategy=cfg.get("strategy", "median"),
+        add_indicator=cfg.get("add_indicator", False)
+    ),
+
+    "knn": lambda cfg, seed: KNNImputer(
+        n_neighbors=cfg.get("n_neighbors", 5),
+        add_indicator=cfg.get("add_indicator", False)
+    ),
+
+    "iterative": lambda cfg, seed: IterativeImputer(
+        max_iter=cfg.get("max_iter", 10),
+        add_indicator=cfg.get("add_indicator", False),
+        random_state=seed
+    ),
+
     "random_forest": lambda cfg, seed: IterativeImputer(
         estimator=RandomForestRegressor(
-            n_estimators=cfg.get("n_estimators", 50), 
-            min_samples_leaf=cfg.get("min_samples_leaf", 5), 
-            random_state=seed, 
+            n_estimators=cfg.get("n_estimators", 50),
+            min_samples_leaf=cfg.get("min_samples_leaf", 5),
+            random_state=seed,
             n_jobs=cfg.get("n_jobs", 1)),
-        max_iter=cfg.get("max_iter", 10), 
-        random_state=seed),
+        max_iter=cfg.get("max_iter", 10),
+        n_nearest_features=cfg.get("n_nearest_features", None),
+        add_indicator=cfg.get("add_indicator", False),
+        random_state=seed
+    ),
 }
 
 _CATEGORICAL_IMPUTERS: dict[str, Any] = {
-    "simple_imputer": lambda cfg, seed: SimpleImputer(strategy=cfg.get("strategy", "most_frequent")),
+    "simple_imputer": lambda cfg, seed: SimpleImputer(
+        strategy=cfg.get("strategy", "most_frequent"),
+        add_indicator=cfg.get("add_indicator", False)
+    ),
 }
 
 
@@ -138,10 +157,7 @@ def build_preprocessor(preprocessing_config: dict) -> ColumnTransformer:
         ("encode", encoder),
     ])
     
-    indicator_cols = [f"{c}_was_missing" for c in preprocessing_config.get("mnar_indicator_sources", [])]
-    
     return ColumnTransformer([
         ("numeric", numeric_pipeline, preprocessing_config["numeric_features"]),
         ("categorical", categorical_pipeline, preprocessing_config["categorical_features"]),
-        ("indicators", "passthrough", indicator_cols),
     ])

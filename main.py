@@ -54,13 +54,13 @@ def train_classification(is_save_model_enabled: bool, model_path: Path | None) -
         scoreboard=scoreboard
     )
 
-    print(f"CV: {new_scoreboard_row['mean']:.3f} ± {new_scoreboard_row['std']:.3f}")
+    print(f"CV: {new_scoreboard_row['mean']:.5f} ± {new_scoreboard_row['std']:.5f}")
     print(f"Report saved to {report_path}")
 
     if not is_save_model_enabled: return
 
     # ----- Fit final classifier on all labelled train.csv observations ----- #
-    model_path = Path(model_path or config["output"].get("model_path", "./models/model.joblib"))
+    model_path = Path(model_path or config["output"].get("model_path", "./models/classification.joblib"))
     model_path.parent.mkdir(parents=True, exist_ok=True)
 
     final_classifier = experiment.selected_pipeline
@@ -207,10 +207,6 @@ def main() -> None:
 
     args = parser.parse_args()
     args.func(args)
-
-
-# ----- Create Kaggle submission ----- #
-# create_kaggle_submission(final_classifier, X, config)
 
 
 if __name__ == "__main__":
