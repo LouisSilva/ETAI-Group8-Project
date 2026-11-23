@@ -1,0 +1,128 @@
+Run ID: 20261123_182756
+Task: Classification
+
+Model: xgboost
+Default hyperparameters: {'n_estimators': 300, 'learning_rate': 0.05, 'max_depth': 4, 'random_state': 42, 'n_jobs': -1}
+
+Preprocessing:
+    - Encoder: target
+    - Scaler: robust
+    - Numeric imputer: iterative
+    - Categorical imputer: simple_imputer
+
+Cross-Validation:
+    - Outer folds: 5
+    - Inner folds: 3
+    - Validation window: 180 days
+    - Prediction horizon: 90 days
+    - Metrics: ['accuracy', 'balanced_accuracy', 'precision', 'recall', 'f1', 'fbeta_2', 'roc_auc', 'average_precision']
+    - Selection metric: f1
+
+Feature selection: VoteSelector, min_votes=2
+Hyperparameter tuning: Optuna, 100 trials
+
+============================================================
+
+Untuned Chronological CV Report (5 chronological folds, selection metric: f1):
+
+ fold  train  validation   gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision
+    1  0.806       0.713 0.093     0.715              0.718      0.758   0.673 0.713    0.689    0.792              0.835
+    2  0.811       0.741 0.070     0.704              0.698      0.694   0.796 0.741    0.773    0.792              0.843
+    3  0.804       0.675 0.130     0.704              0.703      0.657   0.694 0.675    0.686    0.768              0.774
+    4  0.786       0.714 0.072     0.703              0.707      0.769   0.667 0.714    0.685    0.786              0.829
+    5  0.795       0.746 0.050     0.711              0.713      0.789   0.707 0.746    0.722    0.774              0.855
+
+                   mean   std
+accuracy          0.708 0.006
+balanced_accuracy 0.708 0.008
+precision         0.734 0.056
+recall            0.707 0.052
+f1                0.718 0.028
+fbeta_2           0.711 0.038
+roc_auc           0.782 0.011
+average_precision 0.827 0.032
+
+f1: train-validation gap mean = +0.083
+
+Dummy model floor achieved f1 = 0.692
+
+============================================================
+
+Nested Chronological CV Report (5 chronological folds, selection metric: f1):
+
+ fold  train  validation    gap  accuracy  balanced_accuracy  precision  recall    f1  fbeta_2  roc_auc  average_precision  inner_best  model__n_estimators  model__learning_rate  model__max_depth  model__min_child_weight  model__subsample  model__colsample_bytree  model__reg_lambda  model__reg_alpha  model__gamma  model__colsample_bylevel  model__colsample_bynode  model__max_bin model__grow_policy model__sampling_method  model__max_delta_step  model__scale_pos_weight  select__min_votes
+    1  0.790       0.740  0.049     0.686              0.677      0.654   0.853 0.740    0.804    0.793              0.839       0.746                  225                 0.159                 7                    1.507             0.895                    0.810              2.005             3.286         2.583                     0.855                    0.939             153          lossguide                uniform                      3                    1.919                  1
+    2  0.785       0.737  0.048     0.638              0.616      0.602   0.949 0.737    0.851    0.808              0.854       0.755                  153                 0.130                 3                    6.522             0.874                    0.743              8.474             6.238         0.655                     0.879                    0.835             385          lossguide                uniform                      1                    1.935                  1
+    3  0.745       0.712  0.033     0.699              0.714      0.616   0.844 0.712    0.786    0.797              0.787       0.771                   63                 0.026                 2                    9.486             0.601                    0.824              0.022             3.666         0.875                     0.899                    0.849             496          depthwise         gradient_based                      4                    1.285                  1
+    4  0.736       0.736  0.000     0.693              0.684      0.708   0.767 0.736    0.754    0.788              0.840       0.759                  131                 0.045                 1                   11.685             0.556                    0.795              3.857             8.553         0.763                     0.766                    0.769             489          depthwise         gradient_based                      3                    1.330                  1
+    5  0.758       0.764 -0.006     0.696              0.665      0.714   0.822 0.764    0.798    0.787              0.870       0.744                  190                 0.065                 1                    7.959             0.571                    0.942              0.074             2.410         0.500                     0.970                    0.927             393          depthwise                uniform                      0                    1.667                  1
+
+                   mean   std
+accuracy          0.683 0.025
+balanced_accuracy 0.671 0.036
+precision         0.659 0.051
+recall            0.847 0.066
+f1                0.738 0.018
+fbeta_2           0.799 0.035
+roc_auc           0.795 0.009
+average_precision 0.838 0.031
+
+f1: train-validation gap mean = +0.025
+
+============================================================
+
+Hyperparameter Tuning Report: Tuning on the whole development set (100 Optuna trials, metric: f1)
+Best hyperparameters: {'model__n_estimators': 316, 'model__learning_rate': 0.05820047673331613, 'model__max_depth': 1, 'model__min_child_weight': 5.755944081029264, 'model__subsample': 0.6549386944953999, 'model__colsample_bytree': 0.9479007508872784, 'model__reg_lambda': 0.025431198433063466, 'model__reg_alpha': 0.856977782636861, 'model__gamma': 0.8315764336174938, 'model__colsample_bylevel': 0.8651532916654447, 'model__colsample_bynode': 0.8860316491649215, 'model__max_bin': 118, 'model__grow_policy': 'depthwise', 'model__sampling_method': 'uniform', 'model__max_delta_step': 2, 'model__scale_pos_weight': 1.9565989483348987, 'select__min_votes': 1}
+Best mean CV score:   0.752  (the maximum over all trials -- optimistic)
+
+Top 5 trials:
+ trial  mean f1  model__colsample_bylevel  model__colsample_bynode  model__colsample_bytree  model__gamma model__grow_policy  model__learning_rate  model__max_bin  model__max_delta_step  model__max_depth  model__min_child_weight  model__n_estimators  model__reg_alpha  model__reg_lambda model__sampling_method  model__scale_pos_weight  model__subsample  select__min_votes   std
+    35    0.752                     0.865                    0.886                    0.948         0.832          depthwise                 0.058             118                      2                 1                    5.756                  316             0.857              0.025                uniform                    1.957             0.655                  1 0.043
+    73    0.751                     0.876                    0.871                    0.923         1.626          depthwise                 0.064             150                      3                 1                    8.919                  363             0.667              0.022                uniform                    1.913             0.594                  1 0.049
+    83    0.750                     0.859                    0.850                    0.962         1.041          depthwise                 0.066              97                      2                 1                    7.073                  288             0.464              0.012                uniform                    1.972             0.598                  1 0.046
+    93    0.750                     0.864                    0.834                    0.878         2.112          depthwise                 0.061             143                      3                 1                    7.030                  289             0.673              0.147                uniform                    1.968             0.533                  1 0.050
+    90    0.749                     0.862                    0.843                    0.972         0.510          depthwise                 0.068              77                      3                 1                    7.826                  269             0.681              0.016                uniform                    1.973             0.631                  1 0.042
+
+Optimism check (nested CV):
+  tuning score inside the outer folds (inner_best) mean = 0.75489
+  honest score on the outer folds (validation)     mean = 0.73795
+  optimism = +0.01695   -> report the honest one
+
+============================================================
+
+Features kept: 17 of 37:
+numeric__total_amount_payable, numeric__days_since_previous_purchase, numeric__prior_purchase_count, numeric__prior_total_spend, numeric__prior_mean_purchase_value, numeric__prior_std_purchase_value, numeric__prior_min_purchase_value, numeric__prior_mean_gap_days, numeric__prior_std_gap_days, numeric__purchase_count_90d, numeric__spend_90d, numeric__purchase_count_180d, numeric__spend_180d, numeric__purchase_count_365d, numeric__spend_365d, categorical__salesperson, categorical__transport_method
+
+============================================================
+
+Out-of-Fold Classification Report: Out-of-fold predictions, development set (threshold 0.5):
+
+        predicted 0  predicted 1
+true 0          446          431
+true 1          160          844
+
+              precision    recall  f1-score   support
+
+         0.0       0.74      0.51      0.60       877
+         1.0       0.66      0.84      0.74      1004
+
+    accuracy                           0.69      1881
+   macro avg       0.70      0.67      0.67      1881
+weighted avg       0.70      0.69      0.68      1881
+
+
+============================================================
+
+Scoreboard:
+          run_id                 model  tuned encoder scaler numerical_imputer feature_selection  mean   std
+20261123_182756               xgboost   True  target robust         iterative       min_votes 1 0.738 0.018
+20261122_182008               xgboost   True   count robust         iterative       min_votes 1 0.738 0.020
+20261120_193147               xgboost   True  onehot robust         iterative       min_votes 1 0.732 0.019
+20261120_191219               xgboost   True  onehot robust    simple_imputer       min_votes 3 0.732 0.020
+20261120_200002               xgboost   True  onehot robust         iterative       min_votes 1 0.730 0.018
+20261120_200529               xgboost   True  onehot robust         iterative       min_votes 1 0.730 0.018
+20261120_195539               xgboost   True  onehot robust               knn       min_votes 1 0.729 0.018
+20261120_223307 oblique_random_forest   True  onehot robust         iterative       min_votes 1 0.724 0.033
+20261120_194833               xgboost   True  onehot robust     random_forest       min_votes 1 0.723 0.021
+20261120_201252               xgboost   True  onehot robust         iterative       min_votes 1 0.721 0.028
+20261120_221804              catboost   True  onehot robust         iterative       min_votes 1 0.714 0.014

@@ -79,7 +79,7 @@ preprocessing:
   regression_target: "spend_next_90d"
   drop_columns: ["ID", "customer_id", "random_noise", "gross_total", "net_total", "total_tax", "cost", "total_shipping", "total_global_discount", "total_line_item_discount", "invoice_count_current_purchase", "details_count"]
   # drop_columns: ["ID", "customer_id"]
-  encoder: "onehot"
+  encoder: "target"
   scaler: "robust"
 
   numeric_imputation:
@@ -119,7 +119,7 @@ split:
 
 
 models:
-  selected_model: "catboost"
+  selected_model: "xgboost"
 
   logistic_regression:
     max_iter: 2000

@@ -8,6 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, TargetEncoder, StandardScaler, MinMaxScaler, RobustScaler
 from category_encoders import CountEncoder
 
@@ -82,9 +83,9 @@ _SCALERS: dict[str, Any] = {
 
 _ENCODERS: dict[str, Any] = {
     "onehot": lambda seed: OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-    # "onehot2": lambda seed: OneHotEncoder(handle_unknown="infrequent_if_exist", min_frequency=10, sparse_output=False),
     "ordinal": lambda seed: OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
     "count": lambda seed: CountEncoder(handle_unknown=0, handle_missing=0),
+    "target": lambda seed: TargetEncoder(target_type="binary", cv=StratifiedKFold(5, shuffle=True, random_state=seed)),
 }
 
 # Numeric imputers. "iterative" is MICE with one completed dataset; "random_forest" is the
