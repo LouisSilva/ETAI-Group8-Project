@@ -39,7 +39,8 @@ def development_test_split(
     split_config: dict
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series]:
     """
-    Returns (X_dev, X_test, y_clf_dev, y_clf_test, y_reg_dev, y_reg_test), where clf = classification, and reg = regression.
+    Returns (X_dev, X_test, y_clf_dev, y_clf_test, y_reg_dev, y_reg_test), 
+    where clf = classification, and reg = regression.
     """
     dates = X["purchase_date"]
     horizon_length = pd.Timedelta(days=split_config["horizon_length_days"])
@@ -136,25 +137,27 @@ def build_preprocessor(preprocessing_config: dict) -> ColumnTransformer:
     on one scale; scalers ignore NaN when fitting), imputation and encoding for categorical 
     columns, and the missingness flags passed through. Every encoder tolerates unseen categories.
     """
+    random_state = preprocessing_config.get("random_state")
+
     scaler_factory = _SCALERS[preprocessing_config["scaler"]]
     scaler = scaler_factory() if callable(scaler_factory) else scaler_factory
-    encoder = _ENCODERS[preprocessing_config["encoder"]](preprocessing_config.get("random_state"))
+    encoder = _ENCODERS[preprocessing_config["encoder"]](random_state)
 
     selected_numeric_imputer = preprocessing_config["numeric_imputation"].get("selected_imputer", "simple_imputer")
     if selected_numeric_imputer not in _NUMERIC_IMPUTERS:
-        raise ValueError(f"Unknown numeric_strategy: {selected_numeric_imputer}. Options: {list(_NUMERIC_IMPUTERS)}")
+        raise ValueError(f"Unknown numeric imputer: {selected_numeric_imputer}. Options: {list(_NUMERIC_IMPUTERS)}")
 
     numeric_pipeline = Pipeline([
         ("scale", scaler),
-        ("impute", _NUMERIC_IMPUTERS[selected_numeric_imputer](preprocessing_config["numeric_imputation"].get(selected_numeric_imputer, {}), preprocessing_config.get("random_state"))),
+        ("impute", _NUMERIC_IMPUTERS[selected_numeric_imputer](preprocessing_config["numeric_imputation"].get(selected_numeric_imputer, {}), random_state)),
     ])
 
     selected_categorical_imputer = preprocessing_config["categorical_imputation"].get("selected_imputer", "simple_imputer")
     if selected_categorical_imputer not in _CATEGORICAL_IMPUTERS:
-        raise ValueError(f"Unknown numeric_strategy: {selected_categorical_imputer}. Options: {list(_CATEGORICAL_IMPUTERS)}")
+        raise ValueError(f"Unknown categorical imputer: {selected_categorical_imputer}. Options: {list(_CATEGORICAL_IMPUTERS)}")
     
     categorical_pipeline = Pipeline([
-        ("impute", _CATEGORICAL_IMPUTERS[selected_categorical_imputer](preprocessing_config["categorical_imputation"].get(selected_categorical_imputer, {}), preprocessing_config.get("random_state"))),
+        ("impute", _CATEGORICAL_IMPUTERS[selected_categorical_imputer](preprocessing_config["categorical_imputation"].get(selected_categorical_imputer, {}), random_state)),
         ("encode", encoder),
     ])
     

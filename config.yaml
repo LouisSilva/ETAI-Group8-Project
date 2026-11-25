@@ -176,7 +176,7 @@ cv:
 
 
 anomaly:
-  enabled: false
+  enabled: true
   method: "lof"
   n_neighbours: 20
   random_state: 42

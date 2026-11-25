@@ -83,8 +83,14 @@ To create a Kaggle submission, do:
 python main.py predict models/classification.joblib --output_prediction --out results/kaggle_submission.csv
 ```
 
-or equivalently
+or equivalently:
 
 ```cmd
 python main.py predict models/classification.joblib --output_prediction --input data/test.csv --out results/kaggle_submission.csv
+```
+
+There is also a shortened version:
+
+```cmd
+python main.py p models/classification.joblib -oc -i data/test.csv -o results/kaggle_submission.csv
 ```

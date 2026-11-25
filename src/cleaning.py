@@ -27,7 +27,7 @@ def apply_domain_rules(df: pd.DataFrame, rules: dict) -> pd.DataFrame:
     for col, bounds in rules.items():
         if col not in df.columns:
             continue
-            
+        
         numeric = pd.to_numeric(df[col], errors="coerce")
         lower_ok = numeric >= bounds["min"] if "min" in bounds else pd.Series(True, index=numeric.index)
         upper_ok = numeric <= bounds["max"] if "max" in bounds else pd.Series(True, index=numeric.index)
@@ -47,11 +47,12 @@ def apply_correct_types(df: pd.DataFrame, column_types: dict, date_format: str) 
         - Columns in `date_columns` get converted to the date type using the specified date format.
     """
     for col in column_types.get("int", []):
-        if col in df.columns:
-            df[col] = (pd.to_numeric(df[col], errors="coerce")).astype("Int64")
+        if col not in df.columns: continue
+        df[col] = (pd.to_numeric(df[col], errors="coerce")).astype("Int64")
 
     for col in column_types.get("date", []):
-        if col in df.columns:
-            stripped_values = df[col].astype("string").str.strip()
-            df[col] = pd.to_datetime(stripped_values, format=date_format, errors="coerce")
+        if col not in df.columns: continue
+        
+        stripped_values = df[col].astype("string").str.strip()
+        df[col] = pd.to_datetime(stripped_values, format=date_format, errors="coerce")
         

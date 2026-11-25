@@ -34,9 +34,10 @@ def predict(
     if output_probability:
         predictions["proba__repeat_purchase_90d"] = classifier.predict_proba(X_clf)[:, 1]
 
+    # Return early if the other two options aren't enabled
     if not output_prediction and not output_regression: return predictions
-    y_clf_pred = classifier.predict(X_clf).astype(int)
 
+    y_clf_pred = classifier.predict(X_clf).astype(int)
     if output_prediction:
         predictions["repeat_purchase_90d"] = y_clf_pred
 
@@ -62,7 +63,7 @@ def predict_csv(
     output_prediction: bool = True,
     output_regression: bool = False,
 ) -> None:
-    """Load saved models, predict a CSV and save the requested outputs."""
+    """Loads saved models, predict a CSV, and save the requested outputs."""
     config = load_yaml_config()
 
     input_path = Path(input_path or config["data"]["csv_paths"]["test"])

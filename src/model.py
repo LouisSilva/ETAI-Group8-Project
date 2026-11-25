@@ -94,11 +94,10 @@ def build_pipeline(
         )))
 
     if selection_config and selection_config.get("enabled", False):
-        steps.append(("select", 
-                      VoteSelector(
-                          min_votes=selection_config.get("min_votes", 2),
-                          random_state=selection_config.get("random_state")
-                      )))
+        steps.append(("select", VoteSelector(
+            min_votes=selection_config.get("min_votes", 2),
+            random_state=selection_config.get("random_state")
+        )))
         
     steps.append(("model", build_model(model_config)))
     return Pipeline(steps, memory=memory)
@@ -156,19 +155,24 @@ class AnomalyScore(TransformerMixin, BaseEstimator):
     larger than the largest group of identical rows). The detector is fitted on the training
     rows only and then scores any rows, so it runs unchanged in CV and on data to predict.
     """
-
-    def __init__(self, method: str = "isolation_forest", n_neighbors: int = 20, random_state=None):
+    def __init__(
+        self, 
+        method: str = "isolation_forest", 
+        n_neighbors: int = 20, 
+        random_state=None
+    ) -> None:
         self.method = method
         self.n_neighbors = n_neighbors
         self.random_state = random_state
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> Self:
         if self.method == "isolation_forest":
             self.detector_ = IsolationForest(random_state=self.random_state)
         elif self.method == "lof":
             self.detector_ = LocalOutlierFactor(n_neighbors=self.n_neighbors, novelty=True)
         else:
             raise ValueError(f"Unknown anomaly method: {self.method}. Options: isolation_forest, lof")
+        
         self.detector_.fit(X)
         self.n_features_in_ = np.asarray(X).shape[1]
         return self
