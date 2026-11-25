@@ -175,6 +175,13 @@ cv:
   n_jobs: 3 # Around `inner_splits` or `inner_splits + 1` works best because during each optuna trial, only `inner_splits` folds can run concurrently
 
 
+anomaly:
+  enabled: false
+  method: "lof"
+  n_neighbours: 20
+  random_state: 42
+
+
 feature_selection:
   enabled: true
   min_votes: 2

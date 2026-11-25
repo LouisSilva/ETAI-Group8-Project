@@ -46,6 +46,10 @@ class ClassificationReport:
         return self.config["feature_selection"]
 
     @property
+    def anomaly_cfg(self) -> dict:
+        return self.config["anomaly"]
+
+    @property
     def tuning_cfg(self) -> dict:
         return self.config["tuning"]
 
@@ -75,6 +79,11 @@ class ClassificationReport:
             "scaler": self.prep_cfg["scaler"],
             "numerical_imputer": self.prep_cfg["numeric_imputation"].get("selected_imputer", "simple_imputer"),
             "categorical_imputer": self.prep_cfg["categorical_imputation"].get("selected_imputer", "simple_imputer"),
+            "anomaly": (
+                f"{self.anomaly_cfg["method"]}(n_neighbours={self.anomaly_cfg["n_neighbours"]})"
+                if self.anomaly_cfg["enabled"]
+                else "off"
+            ),
             "feature_selection": (
                 f"min_votes {self.selected_min_votes}"
                 if self.selected_min_votes is not None
@@ -97,6 +106,12 @@ class ClassificationReport:
         }
 
     def __str__(self) -> str:
+        anomaly_text = (
+            f"{self.anomaly_cfg["method"]}, n_neighbours={self.anomaly_cfg["n_neighbours"]}"
+            if self.anomaly_cfg["enabled"]
+            else "off"
+        )
+
         feature_selection_text = (
             f"VoteSelector, min_votes={self.f_selection_cfg.get('min_votes', 2)}"
             if self.f_selection_cfg.get("enabled", False) 
@@ -168,6 +183,8 @@ Cross-Validation:
     - Metrics: {self.cv_cfg['metrics']}
     - Selection metric: {self.cv_cfg['selection_metric']}
 
+
+Anomaly detection: {anomaly_text}
 Feature selection: {feature_selection_text}
 Hyperparameter tuning: {hyperparameter_tuning_text}
 
@@ -241,6 +258,7 @@ class Scoreboard:
             "encoder",
             "scaler",
             "numerical_imputer",
+            "anomaly",
             "feature_selection",
             "mean",
             "std",

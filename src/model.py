@@ -3,14 +3,15 @@ from typing import Self
 import numpy as np
 
 from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_selection import SelectorMixin
 from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier, RandomForestClassifier, IsolationForest
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.random_projection import SparseRandomProjection
+from sklearn.neighbors import LocalOutlierFactor
 from xgboost import XGBClassifier
 
 from src.preprocessing import build_preprocessor
@@ -72,6 +73,7 @@ def build_pipeline(
     preprocessing_config: dict, 
     model_config: dict, 
     selection_config: dict = None,
+    anomaly_config: dict = None,
     memory=None
 ) -> Pipeline:
     """
@@ -81,8 +83,16 @@ def build_pipeline(
     (`model__max_depth`, `select__min_votes`). `memory` (a folder) caches the fitted
     preprocessing and selection steps: a fit on the same rows with the same settings is
     reused instead of repeated, so tuning the model doesn't refit them in every trial.
-    """
+    """ # TODO: Update this docstring
     steps = [("prep", build_preprocessor(preprocessing_config))]
+
+    if anomaly_config and anomaly_config.get("enabled", False):
+        steps.append(("anomaly", AnomalyScore(
+            method=anomaly_config["method"],
+            n_neighbors=anomaly_config.get("n_neighbours", 20),
+            random_state=anomaly_config.get("random_state")
+        )))
+
     if selection_config and selection_config.get("enabled", False):
         steps.append(("select", 
                       VoteSelector(
@@ -135,3 +145,45 @@ class VoteSelector(SelectorMixin, BaseEstimator):
 
     def _get_support_mask(self):
         return self.support_
+
+
+class AnomalyScore(TransformerMixin, BaseEstimator):
+    """
+    Appends one column, `anomaly_score`, to the preprocessed features: how unusual each row is
+    compared with the training rows (higher = more unusual). `method` is "isolation_forest"
+    (the score is the theory's s(x), about 0.5 for ordinary rows and close to 1 for anomalies)
+    or "lof" (the Local Outlier Factor, about 1 for ordinary rows; `n_neighbors` should be
+    larger than the largest group of identical rows). The detector is fitted on the training
+    rows only and then scores any rows, so it runs unchanged in CV and on data to predict.
+    """
+
+    def __init__(self, method: str = "isolation_forest", n_neighbors: int = 20, random_state=None):
+        self.method = method
+        self.n_neighbors = n_neighbors
+        self.random_state = random_state
+
+    def fit(self, X, y=None):
+        if self.method == "isolation_forest":
+            self.detector_ = IsolationForest(random_state=self.random_state)
+        elif self.method == "lof":
+            self.detector_ = LocalOutlierFactor(n_neighbors=self.n_neighbors, novelty=True)
+        else:
+            raise ValueError(f"Unknown anomaly method: {self.method}. Options: isolation_forest, lof")
+        self.detector_.fit(X)
+        self.n_features_in_ = np.asarray(X).shape[1]
+        return self
+
+    def fit_transform(self, X, y=None):
+        """Fits on X and scores it. LOF scores its own training rows without counting each row as its own neighbour."""
+        self.fit(X)
+        if self.method == "lof":
+            return np.column_stack([X, -self.detector_.negative_outlier_factor_])
+        return self.transform(X)
+
+    def transform(self, X):
+        return np.column_stack([X, -self.detector_.score_samples(X)])
+
+    def get_feature_names_out(self, input_features=None):
+        if input_features is None:
+            input_features = [f"x{i}" for i in range(self.n_features_in_)]
+        return np.append(np.asarray(input_features, dtype=object), "anomaly_score")
