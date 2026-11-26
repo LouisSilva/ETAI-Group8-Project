@@ -1,0 +1,25 @@
+[project]
+name = "etai-group8-project"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "category-encoders==2.11.2",
+    "joblib==1.6.0",
+    "numpy==2.5.3",
+    "optuna==5.0.0",
+    "pandas==3.0.6",
+    "pyyaml==6.0.3",
+    "scikit-learn==1.9.1",
+    "scipy==1.18.1",
+    "xgboost==3.4.1",
+]
+
+[dependency-groups]
+dev = [
+    "catboost==1.2.10",
+    "ipykernel==7.4.0",
+    "matplotlib==3.11.2",
+    "plotly==7.1.0",
+    "shap==0.54.1",
+    "statsmodels==0.15.0",
+]
