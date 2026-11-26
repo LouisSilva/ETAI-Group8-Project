@@ -46,6 +46,10 @@ class ClassificationReport:
         return self.config["feature_selection"]
 
     @property
+    def anomaly_cfg(self) -> dict:
+        return self.config["anomaly"]
+
+    @property
     def tuning_cfg(self) -> dict:
         return self.config["tuning"]
 
@@ -75,6 +79,11 @@ class ClassificationReport:
             "scaler": self.prep_cfg["scaler"],
             "numerical_imputer": self.prep_cfg["numeric_imputation"].get("selected_imputer", "simple_imputer"),
             "categorical_imputer": self.prep_cfg["categorical_imputation"].get("selected_imputer", "simple_imputer"),
+            "anomaly": (
+                f"{self.anomaly_cfg["method"]}(n_neighbours={self.anomaly_cfg["n_neighbours"]})"
+                if self.anomaly_cfg["enabled"]
+                else "off"
+            ),
             "feature_selection": (
                 f"min_votes {self.selected_min_votes}"
                 if self.selected_min_votes is not None
@@ -97,6 +106,12 @@ class ClassificationReport:
         }
 
     def __str__(self) -> str:
+        anomaly_text = (
+            f"{self.anomaly_cfg["method"]}, n_neighbours={self.anomaly_cfg["n_neighbours"]}"
+            if self.anomaly_cfg["enabled"]
+            else "off"
+        )
+
         feature_selection_text = (
             f"VoteSelector, min_votes={self.f_selection_cfg.get('min_votes', 2)}"
             if self.f_selection_cfg.get("enabled", False) 
@@ -145,7 +160,7 @@ class ClassificationReport:
             f"{len(self.selected_features)} of {self.total_features}:\n" + ", ".join(self.selected_features)
             if self.selected_features is not None
             else "All"
-            )
+        )
 
         return dedent(f"""
 Run ID: {self.run_id}
@@ -168,6 +183,8 @@ Cross-Validation:
     - Metrics: {self.cv_cfg['metrics']}
     - Selection metric: {self.cv_cfg['selection_metric']}
 
+
+Anomaly detection: {anomaly_text}
 Feature selection: {feature_selection_text}
 Hyperparameter tuning: {hyperparameter_tuning_text}
 
@@ -220,14 +237,13 @@ class Scoreboard:
         It will create an empty DataFrame if the CSV doesn't exist."""
         self.runs = (
             pd.read_csv(self.path, dtype={"run_id": str}) 
-            if self.path.exists
+            if self.path.exists()
             else pd.DataFrame()
         )
 
     def save_score(self, new_scoreboard_row: dict) -> None:
         """Appends one run (`new_scoreboard_row`) to the CSV at `self.path` (created if needed)."""
         self.runs = pd.concat([self.runs, pd.DataFrame([new_scoreboard_row])], ignore_index=True)
-
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.runs.to_csv(self.path, index=False)
 
@@ -239,11 +255,13 @@ class Scoreboard:
             "run_id",
             "model",
             "tuned",
+            "encoder",
+            "scaler",
+            "numerical_imputer",
+            "anomaly",
             "feature_selection",
             "mean",
             "std",
-            "untuned",
-            "floor",
         ]
 
         return matching.sort_values("mean", ascending=False)[columns]

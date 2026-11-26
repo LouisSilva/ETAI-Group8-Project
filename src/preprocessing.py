@@ -8,6 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, TargetEncoder, StandardScaler, MinMaxScaler, RobustScaler
 from category_encoders import CountEncoder
 
@@ -38,7 +39,8 @@ def development_test_split(
     split_config: dict
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series]:
     """
-    Returns (X_dev, X_test, y_clf_dev, y_clf_test, y_reg_dev, y_reg_test), where clf = classification, and reg = regression.
+    Returns (X_dev, X_test, y_clf_dev, y_clf_test, y_reg_dev, y_reg_test), 
+    where clf = classification, and reg = regression.
     """
     dates = X["purchase_date"]
     horizon_length = pd.Timedelta(days=split_config["horizon_length_days"])
@@ -82,30 +84,49 @@ _SCALERS: dict[str, Any] = {
 
 _ENCODERS: dict[str, Any] = {
     "onehot": lambda seed: OneHotEncoder(handle_unknown="ignore", sparse_output=False),
-    # "onehot2": lambda seed: OneHotEncoder(handle_unknown="infrequent_if_exist", min_frequency=10, sparse_output=False),
     "ordinal": lambda seed: OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
     "count": lambda seed: CountEncoder(handle_unknown=0, handle_missing=0),
+    "target": lambda seed: TargetEncoder(target_type="binary", cv=StratifiedKFold(5, shuffle=True, random_state=seed)),
 }
 
 # Numeric imputers. "iterative" is MICE with one completed dataset; "random_forest" is the
 # missForest idea (each column predicted from the others by a random forest). Both learn only
 # from the feature columns, never from the target, so they also run on data to predict.
 _NUMERIC_IMPUTERS: dict[str, Any] = {
-    "simple_imputer": lambda cfg, seed: SimpleImputer(strategy=cfg.get("strategy", "median")),
-    "knn": lambda cfg, seed: KNNImputer(n_neighbors=cfg.get("n_neighbors", 5)),
-    "iterative": lambda cfg, seed: IterativeImputer(max_iter=cfg.get("max_iter", 10), random_state=seed),
+    "simple_imputer": lambda cfg, seed: SimpleImputer(
+        strategy=cfg.get("strategy", "median"),
+        add_indicator=cfg.get("add_indicator", False)
+    ),
+
+    "knn": lambda cfg, seed: KNNImputer(
+        n_neighbors=cfg.get("n_neighbors", 5),
+        add_indicator=cfg.get("add_indicator", False)
+    ),
+
+    "iterative": lambda cfg, seed: IterativeImputer(
+        max_iter=cfg.get("max_iter", 10),
+        add_indicator=cfg.get("add_indicator", False),
+        random_state=seed
+    ),
+
     "random_forest": lambda cfg, seed: IterativeImputer(
         estimator=RandomForestRegressor(
-            n_estimators=cfg.get("n_estimators", 50), 
-            min_samples_leaf=cfg.get("min_samples_leaf", 5), 
-            random_state=seed, 
+            n_estimators=cfg.get("n_estimators", 50),
+            min_samples_leaf=cfg.get("min_samples_leaf", 5),
+            random_state=seed,
             n_jobs=cfg.get("n_jobs", 1)),
-        max_iter=cfg.get("max_iter", 10), 
-        random_state=seed),
+        max_iter=cfg.get("max_iter", 10),
+        n_nearest_features=cfg.get("n_nearest_features", None),
+        add_indicator=cfg.get("add_indicator", False),
+        random_state=seed
+    ),
 }
 
 _CATEGORICAL_IMPUTERS: dict[str, Any] = {
-    "simple_imputer": lambda cfg, seed: SimpleImputer(strategy=cfg.get("strategy", "most_frequent")),
+    "simple_imputer": lambda cfg, seed: SimpleImputer(
+        strategy=cfg.get("strategy", "most_frequent"),
+        add_indicator=cfg.get("add_indicator", False)
+    ),
 }
 
 
@@ -116,32 +137,31 @@ def build_preprocessor(preprocessing_config: dict) -> ColumnTransformer:
     on one scale; scalers ignore NaN when fitting), imputation and encoding for categorical 
     columns, and the missingness flags passed through. Every encoder tolerates unseen categories.
     """
+    random_state = preprocessing_config.get("random_state")
+
     scaler_factory = _SCALERS[preprocessing_config["scaler"]]
     scaler = scaler_factory() if callable(scaler_factory) else scaler_factory
-    encoder = _ENCODERS[preprocessing_config["encoder"]](preprocessing_config.get("random_state"))
+    encoder = _ENCODERS[preprocessing_config["encoder"]](random_state)
 
     selected_numeric_imputer = preprocessing_config["numeric_imputation"].get("selected_imputer", "simple_imputer")
     if selected_numeric_imputer not in _NUMERIC_IMPUTERS:
-        raise ValueError(f"Unknown numeric_strategy: {selected_numeric_imputer}. Options: {list(_NUMERIC_IMPUTERS)}")
+        raise ValueError(f"Unknown numeric imputer: {selected_numeric_imputer}. Options: {list(_NUMERIC_IMPUTERS)}")
 
     numeric_pipeline = Pipeline([
         ("scale", scaler),
-        ("impute", _NUMERIC_IMPUTERS[selected_numeric_imputer](preprocessing_config["numeric_imputation"].get(selected_numeric_imputer, {}), preprocessing_config.get("random_state"))),
+        ("impute", _NUMERIC_IMPUTERS[selected_numeric_imputer](preprocessing_config["numeric_imputation"].get(selected_numeric_imputer, {}), random_state)),
     ])
 
     selected_categorical_imputer = preprocessing_config["categorical_imputation"].get("selected_imputer", "simple_imputer")
     if selected_categorical_imputer not in _CATEGORICAL_IMPUTERS:
-        raise ValueError(f"Unknown numeric_strategy: {selected_categorical_imputer}. Options: {list(_CATEGORICAL_IMPUTERS)}")
+        raise ValueError(f"Unknown categorical imputer: {selected_categorical_imputer}. Options: {list(_CATEGORICAL_IMPUTERS)}")
     
     categorical_pipeline = Pipeline([
-        ("impute", _CATEGORICAL_IMPUTERS[selected_categorical_imputer](preprocessing_config["categorical_imputation"].get(selected_categorical_imputer, {}), preprocessing_config.get("random_state"))),
+        ("impute", _CATEGORICAL_IMPUTERS[selected_categorical_imputer](preprocessing_config["categorical_imputation"].get(selected_categorical_imputer, {}), random_state)),
         ("encode", encoder),
     ])
-    
-    indicator_cols = [f"{c}_was_missing" for c in preprocessing_config.get("mnar_indicator_sources", [])]
     
     return ColumnTransformer([
         ("numeric", numeric_pipeline, preprocessing_config["numeric_features"]),
         ("categorical", categorical_pipeline, preprocessing_config["categorical_features"]),
-        ("indicators", "passthrough", indicator_cols),
     ])

@@ -145,14 +145,21 @@ python main.py predict models/classification.joblib models/regression.joblib --o
 Add `--output_probability` to any predict command to also write the probability of a repeat purchase.
 
 ### Kaggle Submission
+
 To create a Kaggle submission, do:
 
 ```cmd
 python main.py predict models/classification.joblib --output_prediction --out results/kaggle_submission.csv
 ```
 
-or equivalently
+or equivalently:
 
 ```cmd
 python main.py predict models/classification.joblib --output_prediction --input data/test.csv --out results/kaggle_submission.csv
+```
+
+There is also a shortened version:
+
+```cmd
+python main.py p models/classification.joblib -oc -i data/test.csv -o results/kaggle_submission.csv
 ```
