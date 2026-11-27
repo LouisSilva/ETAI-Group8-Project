@@ -12,6 +12,13 @@ data:
     sample_submission: "./data/sample_submission.csv"
 
 
+diagnostics:
+  # How the true value of a negative entry is known, to test whether only the sign is wrong
+  sign_error_rules:
+    spend_365d: {min_column: "spend_180d"}   # 365 days include the last 180
+    prior_mean_purchase_value: {numerator: "prior_total_spend", denominator: "prior_purchase_count"}   # mean = total / count
+
+
 cleaning:
   train: # As in, the train.csv
     date_format: "%Y-%m-%d"
@@ -25,11 +32,23 @@ cleaning:
       "Total Desc_ Linha": "total_line_item_discount"
       "Custo": "cost"
       "N_ Detalhes": "details_count"
-      
+    
+    # Negative values that are the right number with a wrong sign -> absolute value.
+    sign_flip_columns: ["spend_365d", "prior_mean_purchase_value"]
+
     column_types:
-      int: ["details_count", "invoice_count_current_purchase", "days_since_previous_purchase", "customer_tenure_days", "prior_purchase_count", "purchase_count_30d", "purchase_count_90d", "purchase_count_180d", "purchase_count_365d", "repeat_purchase_90d", "customer_id", "ID"] # Columns that we force to be integers (e.g., "prior_purchase_count" needs to be an integer because you can't make 0.5 prior purchases)
-      date: ["purchase_date"] # Columns that we want to be dates
-      
+      # Columns that we force to be integers (e.g., counts, identifiers, etc.)
+      int: ["details_count", "invoice_count_current_purchase", "days_since_previous_purchase", 
+        "customer_tenure_days", "prior_purchase_count", "purchase_count_30d", "purchase_count_90d", 
+        "purchase_count_180d", "purchase_count_365d"]
+      # Columns that we want to be dates
+      date: ["purchase_date"]
+    
+    # Fishy codes that mean "unknown" -> NaN. 1e9 is the only value above one million in these columns.
+    placeholder_values:
+      prior_mean_purchase_value: [1000000000]
+      spend_365d: [1000000000]
+
     domain_rules:
       total_amount_payable: {min: 0}
       gross_total: {min: 0}
@@ -47,7 +66,7 @@ cleaning:
       customer_tenure_days: {min: 0}
       prior_purchase_count: {min: 0}
       prior_total_spend: {min: 0}
-      prior_mean_purchase_value: {min: 0} # There are around 16 entries that have a prior_mean_purchase_value of exactly 1 billion. We need to look into that. For now, I'll just have the min value requirement.
+      prior_mean_purchase_value: {min: 0}
       prior_std_purchase_value: {min: 0}
       prior_min_purchase_value: {min: 0}
       prior_max_purchase_value: {min: 0}
@@ -60,7 +79,7 @@ cleaning:
       purchase_count_180d: {min: 0}
       spend_180d: {min: 0}
       purchase_count_365d: {min: 0}
-      spend_365d: {min: 0} # This also has a few entries of 1 billion spend
+      spend_365d: {min: 0}
       customer_id: {min: 0}
       ID: {min: 0}
       
